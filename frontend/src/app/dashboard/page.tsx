@@ -8,12 +8,27 @@ import LookupTab from "./components/LookupTab";
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"lookup" | "compare">("lookup");
   const [isCompareWide, setIsCompareWide] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // Only run on client
+    const stored = typeof window !== "undefined" ? localStorage.getItem("dashboard_activeTab") : null;
+    if (stored === "lookup" || stored === "compare") {
+      setActiveTab(stored);
+    }
+    setReady(true);
+  }, []);
 
   useEffect(() => {
     if (activeTab !== "compare") {
       setIsCompareWide(false);
     }
-  }, [activeTab]);
+    if (ready) {
+      localStorage.setItem("dashboard_activeTab", activeTab);
+    }
+  }, [activeTab, ready]);
+
+  if (!ready) return null;
 
   const containerClasses =
     activeTab === "compare" && isCompareWide

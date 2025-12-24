@@ -9,11 +9,28 @@ export interface FilterDropdownProps {
   hasActiveFilter: boolean;
 }
 
+
+
+function getOptionsKey(options: string[]) {
+  return "dashboard_filterDropdown_" + btoa(options.join(","));
+}
+
 export default function FilterDropdown({ options, onSelectionChange, hasActiveFilter }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const key = getOptionsKey(options);
+      const stored = localStorage.getItem(key);
+      if (stored) return JSON.parse(stored);
+    }
+    return [];
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const key = getOptionsKey(options);
+    localStorage.setItem(key, JSON.stringify(selectedItems));
+  }, [selectedItems, options]);
 
   const filteredOptions = options.filter(option => option.toLowerCase().includes(searchTerm.toLowerCase()));
 

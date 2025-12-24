@@ -338,8 +338,8 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
               return { x, y };
             });
             const sparklinePoints = sparklineCoords.map(point => `${point.x},${point.y}`).join(" ");
-            const trendClass = summary.trend.label === "—" ? "text-gray-400" : directionClass[summary.trend.direction];
-            const yoySummaryClass = summary.yoy.label === "—" ? "text-gray-400" : directionClass[summary.yoy.direction];
+            const trendClass = summary.trend.label === "—" ? "text-gray-400" : directionClass[summary.trend.direction as "up" | "down" | "neutral"];
+            const yoySummaryClass = summary.yoy.label === "—" ? "text-gray-400" : directionClass[summary.yoy.direction as "up" | "down" | "neutral"];
 
             return (
               <div

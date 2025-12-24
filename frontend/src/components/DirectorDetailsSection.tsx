@@ -1,5 +1,16 @@
-// src/components/DirectorDetailsSection.tsx
+
 "use client";
+// src/components/DirectorDetailsSection.tsx
+
+interface DirectorDetailsSectionProps {
+  director: DirectorInfo;
+  companyName: string;
+  companyData: DirectorInfo[];
+  directorDetailsRef: RefObject<HTMLDivElement>;
+  onClose: () => void;
+  toFY: (year: number) => string;
+  otherCompanies?: CompanyHistory[];
+}
 
 import { RefObject, useMemo } from "react";
 import EsopValueChart from "@/components/EsopValueChart";

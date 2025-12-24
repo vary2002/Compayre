@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import Dropdown from "@/components/Dropdown";
 import CompanyInfoCard from "@/components/CompanyInfoCard";
 import DirectorTable from "@/components/DirectorTable";
@@ -48,14 +48,45 @@ const directorPiePalette = [
   "#22D3EE",
 ];
 
+
+
 export default function LookupTab() {
   const [selectedCompany, setSelectedCompany] = useState<string | number | (string | number)[] | null>(null);
   const [nameFilter, setNameFilter] = useState<(string | number)[] | null>(null);
   const [dinFilter, setDinFilter] = useState<(string | number)[] | null>(null);
   const [designationFilter, setDesignationFilter] = useState<(string | number)[] | null>(null);
   const [compensationSort, setCompensationSort] = useState<"asc" | "desc" | null>(null);
-  const [selectedDirector, setSelectedDirector] = useState<{ name: string; din: string } | null>(null);
+  const [selectedDirector, setSelectedDirector] = useState<DirectorInfo | null>(null);
+
+  // Restore persisted state after mount to ensure UI updates
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedCompany = localStorage.getItem("dashboard_selectedCompany");
+      if (storedCompany) {
+        setSelectedCompany(JSON.parse(storedCompany));
+      }
+      const storedDirector = localStorage.getItem("dashboard_selectedDirector");
+      if (storedDirector) {
+        setSelectedDirector(JSON.parse(storedDirector));
+      }
+    }
+  }, []);
   const directorDetailsRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+  useEffect(() => {
+    if (selectedCompany !== null && selectedCompany !== undefined) {
+      localStorage.setItem("dashboard_selectedCompany", JSON.stringify(selectedCompany));
+    } else {
+      localStorage.removeItem("dashboard_selectedCompany");
+    }
+  }, [selectedCompany]);
+
+  useEffect(() => {
+    if (selectedDirector !== null && selectedDirector !== undefined) {
+      localStorage.setItem("dashboard_selectedDirector", JSON.stringify(selectedDirector));
+    } else {
+      localStorage.removeItem("dashboard_selectedDirector");
+    }
+  }, [selectedDirector]);
 
   const selectedCompanyData: DirectorInfo[] = useMemo(() => {
     if (!selectedCompany || typeof selectedCompany !== "string") {
@@ -167,10 +198,16 @@ export default function LookupTab() {
   }, [uniqueDirectors, nameFilter, dinFilter, designationFilter, compensationSort]);
 
   const handleDirectorClick = (name: string, din: string) => {
-    setSelectedDirector({ name, din });
-    setTimeout(() => {
-      directorDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    // Find the full DirectorInfo object from selectedCompanyData
+    const fullDirector = selectedCompanyData.find(
+      (d) => d.name === name && d.din === din
+    );
+    if (fullDirector) {
+      setSelectedDirector(fullDirector);
+      setTimeout(() => {
+        directorDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
   };
 
   const handleToggleCompensationSort = () => {
@@ -190,6 +227,7 @@ export default function LookupTab() {
             isMultiSelect={false}
             isSearchable
             onSelectionChange={setSelectedCompany}
+            value={selectedCompany}
             showSelectAll={false}
             showReset={false}
           />

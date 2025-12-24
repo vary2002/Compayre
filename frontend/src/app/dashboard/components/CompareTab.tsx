@@ -83,10 +83,41 @@ const buildIndividualRemunerationBreakdown = (profile: DirectorProfile) => {
   };
 };
 
+
+
 export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {}) {
   const [compareSelectedDirector, setCompareSelectedDirector] = useState<DirectorIdentity | null>(null);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [comparisonDirectors, setComparisonDirectors] = useState<(DirectorIdentity | null)[]>([null, null, null]);
+
+  // Restore persisted state after mount to ensure UI updates
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedCompare = localStorage.getItem("dashboard_compareSelectedDirector");
+      if (storedCompare) {
+        setCompareSelectedDirector(JSON.parse(storedCompare));
+      }
+      const storedComparison = localStorage.getItem("dashboard_comparisonDirectors");
+      if (storedComparison) {
+        setComparisonDirectors(JSON.parse(storedComparison));
+      }
+    }
+  }, []);
+  useEffect(() => {
+    if (compareSelectedDirector !== null && compareSelectedDirector !== undefined) {
+      localStorage.setItem("dashboard_compareSelectedDirector", JSON.stringify(compareSelectedDirector));
+    } else {
+      localStorage.removeItem("dashboard_compareSelectedDirector");
+    }
+  }, [compareSelectedDirector]);
+
+  useEffect(() => {
+    if (comparisonDirectors && comparisonDirectors.some(d => d !== null && d !== undefined)) {
+      localStorage.setItem("dashboard_comparisonDirectors", JSON.stringify(comparisonDirectors));
+    } else {
+      localStorage.removeItem("dashboard_comparisonDirectors");
+    }
+  }, [comparisonDirectors]);
 
   const allDirectors = useMemo(() => Object.values(companyDataMap).flat(), []);
 
@@ -260,6 +291,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
                   isMultiSelect={false}
                   isSearchable
                   onSelectionChange={value => handleAssignDirector(index, value)}
+                  value={comparisonDirectors[index]?.din ?? null}
                   showSelectAll={false}
                   showReset={false}
                 />
@@ -287,6 +319,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
                   setCompareSelectedDirector(null);
                 }
               }}
+              value={compareSelectedDirector?.din ?? null}
               showSelectAll={false}
               showReset={false}
             />

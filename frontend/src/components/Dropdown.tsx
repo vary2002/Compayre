@@ -18,6 +18,7 @@ interface DropdownProps {
   isSearchable?: boolean;
   // Returns the actual selected value(s), not the object
   onSelectionChange?: (selected: string | number | (string | number)[] | null) => void;
+  value?: string | number | (string | number)[] | null;
   maxHeight?: string;
   showSelectAll?: boolean;
   showReset?: boolean;
@@ -30,6 +31,7 @@ export default function Dropdown({
   isMultiSelect = false,
   isSearchable = true,
   onSelectionChange,
+  value,
   maxHeight = 'max-h-60',
   showSelectAll = true,
   showReset = true,
@@ -54,6 +56,38 @@ export default function Dropdown({
   const [searchTerm, setSearchTerm] = useState('');
   const [singleSelected, setSingleSelected] = useState<DropdownOption | null>(null);
   const [multiSelected, setMultiSelected] = useState<DropdownOption[]>([]);
+    // Sync internal state with value prop (controlled mode)
+    useEffect(() => {
+      if (value !== undefined) {
+        if (isMultiSelect) {
+          if (Array.isArray(value)) {
+            const newSelected = normalizedOptions.filter(opt => value.includes(opt.value ?? opt.label));
+            // Only update if different
+            if (
+              newSelected.length !== multiSelected.length ||
+              newSelected.some((opt, i) => opt.id !== multiSelected[i]?.id)
+            ) {
+              setMultiSelected(newSelected);
+            }
+          } else if (value === null && multiSelected.length > 0) {
+            setMultiSelected([]);
+          }
+        } else {
+          if (value === null && singleSelected !== null) {
+            setSingleSelected(null);
+          } else if (value !== null) {
+            const found = normalizedOptions.find(opt => (opt.value ?? opt.label) === value);
+            if (
+              (found && (!singleSelected || found.id !== singleSelected.id)) ||
+              (!found && singleSelected !== null)
+            ) {
+              setSingleSelected(found || null);
+            }
+          }
+        }
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, normalizedOptions, isMultiSelect]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
