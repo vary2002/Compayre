@@ -795,16 +795,16 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
             <span className="text-xs text-gray-600">Latest (FY25)</span>
             <span className="text-xs font-semibold text-gray-900">{formatCurrencyCompact(parseCurrency(latestRecord.compensation))}</span>
           </div>
-          <div className="flex items-center justify-between">
+          {/* <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Average</span>
             <span className="text-xs font-semibold text-gray-900">{formatCurrencyCompact(avgCompensation)}</span>
-          </div>
-          <div className="flex items-center justify-between">
+          </div> */}
+          {/* <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Peak</span>
             <span className="text-xs font-semibold text-indigo-600">{formatCurrencyCompact(peakCompensation)}</span>
-          </div>
+          </div> */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Total Earned</span>
+            <span className="text-xs text-gray-600">Total Remuneration</span>
             <span className="text-xs font-semibold text-teal-600">{formatCurrencyCompact(totalEarnings)}</span>
           </div>
           <div className="flex items-center justify-between">
@@ -813,26 +813,14 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
               {compensationGrowthDisplay}
             </span>
           </div>
-        </div>
-      </div>
-
-      <div className="border-t pt-2">
-        <div className="text-xs font-semibold text-gray-700 mb-2">Pay Structure</div>
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Avg Fixed</span>
-            <span className="text-xs font-semibold text-gray-900">{formatCurrencyCompact(avgSalary)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Avg Variable</span>
-            <span className="text-xs font-semibold text-gray-900">{formatCurrencyCompact(avgBonus)}</span>
-          </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Variable Ratio</span>
             <span className="text-xs font-semibold text-amber-600">{variableRatio}%</span>
           </div>
         </div>
       </div>
+
+
 
       <div className="border-t pt-2">
         <div className="flex items-center justify-between">
@@ -1046,7 +1034,6 @@ function CompanyHistory({ history }: { history: DirectorHistory }) {
                   <thead className="bg-indigo-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Year</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Designation</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Compensation</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Bonus</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">ESOPs</th>
@@ -1056,7 +1043,6 @@ function CompanyHistory({ history }: { history: DirectorHistory }) {
                     {records.map(record => (
                       <tr key={`${entry.company}-${record.year}`} className="hover:bg-gray-50">
                         <td className="px-6 py-3 text-sm text-gray-900">{record.year}</td>
-                        <td className="px-6 py-3 text-sm text-gray-700">{record.designation}</td>
                         <td className="px-6 py-3 text-sm font-semibold text-indigo-600">{record.compensation}</td>
                         <td className="px-6 py-3 text-sm text-gray-600">{record.bonus ?? "₹0"}</td>
                         <td className="px-6 py-3 text-sm text-gray-600">{record.esops ? record.esops.toLocaleString() : "-"}</td>

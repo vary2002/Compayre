@@ -13,12 +13,12 @@ interface DirectorDetailsSectionProps {
 }
 
 import { RefObject, useMemo } from "react";
-import EsopValueChart from "@/components/EsopValueChart";
 import CompensationSummaryCards from "./CompensationSummaryCards";
 import MetricCard from "./MetricCard";
 import PieChart from "./PieChart";
 import OtherCompaniesSection from "./OtherCompaniesSection";
 import { buildEsopValueSeries } from "@/utils/esop";
+import { StackedBarChart } from "@/components/StackedBarChart";
 import { formatCurrencyCompact } from "@/utils/currency";
 import { computeCfsnGrowth } from "@/utils/growth";
 
@@ -69,11 +69,38 @@ export default function DirectorDetailsSection({
 
   const latestRecord = records[0];
   const esopSeries = useMemo(() => buildEsopValueSeries(records), [records]);
-  
+
+  // Guard: If no records, show a message
+  if (!records.length) {
+    return (
+      <div ref={directorDetailsRef} className="mt-8 bg-linear-to-br from-slate-50 via-white to-white border border-slate-200 ring-1 ring-inset ring-slate-100 rounded-2xl p-6 shadow-lg">
+        <div className="mb-6">
+          <div className="relative flex justify-between items-start rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                <span>Director detail</span>
+              </div>
+              <h3 className="text-2xl font-semibold text-slate-900 leading-tight">{director.name}</h3>
+              <p className="text-sm text-slate-500 font-mono">DIN: {director.din}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none"
+              aria-label="Close director details"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div className="p-8 text-center text-gray-500">No data available for this director at {companyName}.</div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={directorDetailsRef}
-      className="mt-8 bg-gradient-to-br from-slate-50 via-white to-white border border-slate-200 ring-1 ring-inset ring-slate-100 rounded-2xl p-6 shadow-lg"
+      className="mt-8 bg-linear-to-br from-slate-50 via-white to-white border border-slate-200 ring-1 ring-inset ring-slate-100 rounded-2xl p-6 shadow-lg"
     >
       <div className="mb-6">
         <div className="relative flex justify-between items-start rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
@@ -81,10 +108,10 @@ export default function DirectorDetailsSection({
           <div className="flex flex-col gap-2 pt-1">
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
               <span>Director detail</span>
-              <span className="text-indigo-400">Live</span>
             </div>
             <h3 className="text-2xl font-semibold text-slate-900 leading-tight">{director.name}</h3>
             <p className="text-sm text-slate-500 font-mono">DIN: {director.din}</p>
+            <div className="text-sm text-slate-700 font-semibold mt-1">Current Designation: {latestRecord.designation}</div>
           </div>
           <button
             onClick={onClose}
@@ -112,7 +139,6 @@ export default function DirectorDetailsSection({
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Year</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Designation</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Compensation</th>
                 </tr>
               </thead>
@@ -120,7 +146,6 @@ export default function DirectorDetailsSection({
                 {records.map((record, idx) => (
                   <tr key={idx} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-900">{record.year}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{record.designation}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{record.compensation}</td>
                   </tr>
                 ))}
@@ -166,14 +191,14 @@ export default function DirectorDetailsSection({
           })()}
 
           {/* Key Metrics & Governance */}
-          <div className="mt-4 p-4 bg-gradient-to-br from-indigo-50 via-white to-white border-t border-indigo-100">
+          <div className="mt-4 p-4 bg-linear-to-br from-indigo-50 via-white to-white border-t border-indigo-100">
             <div className="flex items-center gap-2 mb-3">
               <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full">
                 Director insight
               </span>
               <h5 className="text-sm font-medium text-gray-900">Key Metrics & Governance</h5>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               {(() => {
                 // Calculate YoY growth
                 let yoyGrowth = 'N/A';
@@ -211,14 +236,6 @@ export default function DirectorDetailsSection({
                       subtitleColor="text-amber-500"
                     />
                     <MetricCard 
-                      label="Attendance" 
-                      value={latestRecord.attendance || 'N/A'} 
-                      subtitle="Executive Director Meetings"
-                      labelColor="text-sky-600"
-                      valueColor="text-sky-800"
-                      subtitleColor="text-sky-500"
-                    />
-                    <MetricCard 
                       label="Tenure" 
                       value={`${tenure} ${tenure === 1 ? 'Year' : 'Years'}`} 
                       subtitle="At Company"
@@ -235,59 +252,57 @@ export default function DirectorDetailsSection({
 
           {/* Detailed Breakdowns and Visualizations */}
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* ESOP Allocation Over Time */}
-            <div className="border border-violet-100 ring-1 ring-inset ring-violet-50 rounded-xl p-4 bg-white/95">
-              <h6 className="text-sm font-medium text-gray-900 mb-3">ESOP Allocation</h6>
+            {/* ESOP Market Value (Improved UI) */}
+            <div className="border border-violet-100 ring-1 ring-inset ring-violet-50 rounded-xl p-6 bg-white/95">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                <div>
+                  <h6 className="text-base font-bold text-violet-800 mb-1">ESOP Market Value</h6>
+                  <div className="text-xs text-gray-500">(Last 5 Years)</div>
+                </div>
+                <div className="bg-teal-600 px-5 py-2 rounded-lg shadow text-white text-lg font-bold flex items-center gap-2">
+                  <svg className="w-5 h-5 text-white/80 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 1.343-3 3 0 1.657 1.343 3 3 3s3-1.343 3-3c0-1.657-1.343-3-3-3zm0 13c-4.418 0-8-3.582-8-8 0-4.418 3.582-8 8-8s8 3.582 8 8c0 4.418-3.582 8-8 8z"/></svg>
+                  {formatCurrencyCompact(companyData.filter(d => d.din === director.din).reduce((sum, r) => sum + parseCurrencyValue(r.esopValue), 0))}
+                  <span className="text-xs font-medium text-white/80">total market value</span>
+                </div>
+              </div>
               {(() => {
                 const sortedRecords = companyData
                   .filter(d => d.din === director.din)
                   .sort((a, b) => a.year - b.year);
-                const hasEsops = sortedRecords.some(r => r.esops && r.esops > 0);
-                
-                if (!hasEsops) {
+                const hasEsopValue = sortedRecords.some(r => parseCurrencyValue(r.esopValue) > 0);
+                if (!hasEsopValue) {
                   return (
                     <div className="text-center py-8 text-gray-500 text-sm">
-                      No ESOP data available
+                      No ESOP market value data available
                     </div>
                   );
                 }
-                
                 return (
-                  <div className="space-y-2">
-                    {sortedRecords.map((record, idx) => {
-                      const esops = record.esops || 0;
-                      const maxEsops = Math.max(...sortedRecords.map(r => r.esops || 0));
-                      const widthPercent = maxEsops > 0 ? (esops / maxEsops) * 100 : 0;
-                      
-                      return (
-                        <div key={idx} className="space-y-1">
-                          <div className="flex items-center gap-3">
-                            <div className="w-14 text-xs text-slate-700 font-semibold">{toFY(record.year)}</div>
-                            <div className="flex-1 bg-slate-100 rounded-full h-7 relative overflow-hidden shadow-inner">
-                              <div 
-                                className="bg-gradient-to-r from-purple-500 to-indigo-600 h-full rounded-full flex items-center justify-end pr-3 transition-all duration-500 hover:from-purple-600 hover:to-indigo-700 shadow-md"
-                                style={{ width: `${widthPercent}%` }}
-                              >
-                                {esops > 0 && (
-                                  <span className="text-[11px] font-bold text-white">
-                                    {esops.toLocaleString()}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          {parseCurrencyValue(record.esopValue) > 0 && (
-                            <div className="text-xs text-slate-600 ml-16 mt-1">
-                              Market Value: <span className="font-bold text-purple-700">{formatCurrencyCompact(parseCurrencyValue(record.esopValue))}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="text-xs text-gray-600">Total ESOPs Granted</div>
-                      <div className="text-lg font-bold text-teal-700">
-                        {sortedRecords.reduce((sum, r) => sum + (r.esops || 0), 0).toLocaleString()}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs text-left border-separate border-spacing-y-1">
+                      <thead>
+                        <tr className="text-gray-700">
+                          <th className="px-2 py-1">Year</th>
+                          <th className="px-2 py-1">Market Value</th>
+                          <th className="px-2 py-1">Options</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedRecords.map((record, idx) => (
+                          <tr key={idx} className="bg-violet-50/60 hover:bg-violet-100/80 rounded">
+                            <td className="px-2 py-1 font-semibold text-violet-800">{toFY(record.year)}</td>
+                            <td className="px-2 py-1 text-teal-700 font-bold">{formatCurrencyCompact(parseCurrencyValue(record.esopValue))}</td>
+                            <td className="px-2 py-1 text-purple-700">{record.esops ? record.esops.toLocaleString() : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Total options granted (last 5 years):</span>
+                        <span className="inline-block bg-purple-100 text-purple-800 font-bold px-3 py-1 rounded-full text-xs shadow-sm">
+                          {sortedRecords.reduce((sum, r) => sum + (r.esops || 0), 0).toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -336,46 +351,41 @@ export default function DirectorDetailsSection({
               })()}
             </div>
 
-            {/* ESOP Valuation Trend */}
+            {/* Stacked Bar Chart: Compensation Components by Year */}
             <div className="lg:col-span-2">
-              <EsopValueChart series={esopSeries} />
+              {(() => {
+                const stackedData = companyData
+                  .filter(d => d.din === director.din)
+                  .sort((a, b) => a.year - b.year)
+                  .map(r => {
+                    const salary = parseCurrencyValue(r.salary);
+                    const retirement = parseCurrencyValue(r.retirementBenefits);
+                    const perquisites = parseCurrencyValue(r.perquisites);
+                    const bonus = parseCurrencyValue(r.bonus);
+                    // payExclEsops = total compensation minus ESOP value if available, else sum of components
+                    const comp = parseCurrencyValue(r.compensation);
+                    const esopValue = parseCurrencyValue(r.esopValue);
+                    // If comp and esopValue are available, subtract esopValue from comp, else sum components
+                    const payExclEsops =
+                      comp && esopValue
+                        ? Math.max(comp - esopValue, 0)
+                        : salary + retirement + perquisites + bonus;
+                    return {
+                      year: r.year,
+                      salary,
+                      retirement,
+                      perquisites,
+                      bonus,
+                      payExclEsops,
+                      esops: r.esops || 0,
+                    };
+                  });
+                return <StackedBarChart data={stackedData} />;
+              })()}
             </div>
 
             {/* Tenure Timeline */}
-            <div className="border border-teal-100 ring-1 ring-inset ring-teal-50 rounded-xl p-6 lg:col-span-2 bg-white shadow-sm hover:shadow-md transition-all duration-300">
-              <h6 className="text-base font-bold text-teal-800 mb-4">Tenure & Designation Timeline</h6>
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-teal-300"></div>
-                
-                <div className="space-y-4">
-                  {records.map((record, idx) => (
-                    <div key={idx} className="relative flex items-start gap-4 pl-4">
-                      {/* Timeline dot */}
-                      <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-teal-600 rounded-full text-white text-xs font-bold flex-shrink-0">
-                        {toFY(record.year)}
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 bg-teal-50 rounded-lg p-3 border border-teal-200">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-semibold text-gray-900 text-sm">{record.designation}</div>
-                            <div className="text-xs text-gray-600 mt-1">Compensation: <span className="font-semibold text-teal-700">{record.compensation}</span></div>
-                            {record.esops && record.esops > 0 && (
-                              <div className="text-xs text-gray-600 mt-1">ESOPs: <span className="font-semibold text-teal-700">{record.esops.toLocaleString()}</span></div>
-                            )}
-                          </div>
-                          {idx === 0 && (
-                            <span className="px-2 py-1 bg-teal-600 text-white text-[10px] font-semibold rounded">LATEST (FY25)</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Tenure Timeline removed: show only current designation at top */}
           </div>
         </div>
 

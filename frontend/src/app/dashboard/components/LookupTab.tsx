@@ -58,6 +58,33 @@ export default function LookupTab() {
   const [compensationSort, setCompensationSort] = useState<"asc" | "desc" | null>(null);
   const [selectedDirector, setSelectedDirector] = useState<DirectorInfo | null>(null);
 
+
+  const selectedCompanyData: DirectorInfo[] = useMemo(() => {
+    if (!selectedCompany || typeof selectedCompany !== "string") {
+      return [];
+    }
+    return companyDataMap[selectedCompany] ?? [];
+  }, [selectedCompany]);
+
+  // When company changes, close director details if director is not in the new company
+  useEffect(() => {
+    if (selectedDirector && selectedCompanyData.length > 0) {
+      const found = selectedCompanyData.some(d => d.din === selectedDirector.din);
+      if (!found) {
+        setSelectedDirector(null);
+      }
+    }
+  }, [selectedCompany, selectedDirector, selectedCompanyData]);
+  // When company changes, close director details if director is not in the new company
+  useEffect(() => {
+    if (selectedDirector && selectedCompanyData.length > 0) {
+      const found = selectedCompanyData.some(d => d.din === selectedDirector.din);
+      if (!found) {
+        setSelectedDirector(null);
+      }
+    }
+  }, [selectedCompany, selectedDirector, selectedCompanyData]);
+
   // Restore persisted state after mount to ensure UI updates
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -87,13 +114,6 @@ export default function LookupTab() {
       localStorage.removeItem("dashboard_selectedDirector");
     }
   }, [selectedDirector]);
-
-  const selectedCompanyData: DirectorInfo[] = useMemo(() => {
-    if (!selectedCompany || typeof selectedCompany !== "string") {
-      return [];
-    }
-    return companyDataMap[selectedCompany] ?? [];
-  }, [selectedCompany]);
 
   const latestCompanyYear = useMemo(() => {
     if (selectedCompanyData.length === 0) {

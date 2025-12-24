@@ -16,7 +16,7 @@ interface DirectorInfo {
   esops?: number;
   esopValue?: string;
   retirementBenefits?: string;
-  attendance?: string;
+  // attendance removed
 }
 
 interface FilterDropdownProps {
@@ -68,7 +68,7 @@ export default function DirectorTable({
       <table className="w-full divide-y divide-gray-200 table-fixed">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>
-            <th className="w-1/4 px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <th className="w-1/3 px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
               <div className="flex items-center gap-2">
                 <span>Name</span>
                 <FilterDropdown
@@ -78,7 +78,7 @@ export default function DirectorTable({
                 />
               </div>
             </th>
-            <th className="w-1/4 px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <th className="w-1/3 px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
               <div className="flex items-center gap-2">
                 <span>DIN</span>
                 <FilterDropdown
@@ -88,17 +88,7 @@ export default function DirectorTable({
                 />
               </div>
             </th>
-            <th className="w-1/4 px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-              <div className="flex items-center gap-2">
-                <span>Designation</span>
-                <FilterDropdown
-                  options={uniqueDesignations}
-                  onSelectionChange={onDesignationFilterChange}
-                  hasActiveFilter={designationFilter !== null && Array.isArray(designationFilter) && designationFilter.length > 0}
-                />
-              </div>
-            </th>
-            <th className="w-1/4 px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+            <th className="w-1/3 px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
               <button
                 onClick={onCompensationSortToggle}
                 className="flex items-center gap-1 hover:text-gray-900"
@@ -114,7 +104,7 @@ export default function DirectorTable({
         <tbody className="bg-white divide-y divide-gray-200">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
+              <td colSpan={3} className="px-6 py-8 text-center text-sm text-gray-500">
                 No executive directors match the selected filters
               </td>
             </tr>
@@ -132,9 +122,6 @@ export default function DirectorTable({
                   onClick={() => onDirectorClick(director.name, director.din)}
                 >
                   {director.din}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                  {director.designation}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {formatCompensation(director.compensation)}

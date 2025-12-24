@@ -17,7 +17,7 @@ interface DirectorInfo {
   esops?: number;
   esopValue?: string;
   retirementBenefits?: string;
-  attendance?: string;
+  // attendance removed
 }
 
 interface CompanyData {
@@ -74,7 +74,6 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Year</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Designation</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Compensation</th>
                   </tr>
                 </thead>
@@ -84,7 +83,6 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
                     .map((record, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 transition-colors duration-200">
                         <td className="px-5 py-3 text-sm text-slate-900">{record.year}</td>
-                        <td className="px-5 py-3 text-sm text-slate-700">{record.designation}</td>
                         <td className="px-5 py-3 text-sm font-semibold text-slate-700">{record.compensation}</td>
                       </tr>
                     ))}
