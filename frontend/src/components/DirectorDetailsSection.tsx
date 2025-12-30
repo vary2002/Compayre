@@ -20,7 +20,7 @@ import OtherCompaniesSection from "./OtherCompaniesSection";
 import { buildEsopValueSeries } from "@/utils/esop";
 import { StackedBarChart } from "@/components/StackedBarChart";
 import { formatCurrencyCompact } from "@/utils/currency";
-import { computeCfsnGrowth } from "@/utils/growth";
+import { computeCfsnGrowth, computeCAGR } from "@/utils/growth";
 
 interface DirectorInfo {
   name: string;
@@ -111,7 +111,7 @@ export default function DirectorDetailsSection({
             </div>
             <h3 className="text-2xl font-semibold text-slate-900 leading-tight">{director.name}</h3>
             <p className="text-sm text-slate-500 font-mono">DIN: {director.din}</p>
-            <div className="text-sm text-slate-700 font-semibold mt-1">Current Designation: {latestRecord.designation}</div>
+            <div className="text-sm text-slate-700 font-semibold mt-1">Designation (Current): {latestRecord.designation} <span className="text-slate-500 font-normal">at {companyName}</span></div>
           </div>
           <button
             onClick={onClose}
@@ -134,25 +134,6 @@ export default function DirectorDetailsSection({
           </h4>
         </div>
         <div className="rounded-xl overflow-hidden border border-sky-100 ring-1 ring-inset ring-sky-50 bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Year</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Compensation</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {records.map((record, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">{record.year}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{record.compensation}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
           {/* Compensation Summary */}
           {(() => {
             const sortedRecords = companyData
@@ -160,9 +141,15 @@ export default function DirectorDetailsSection({
               .sort((a, b) => a.year - b.year);
 
             const compValues = sortedRecords.map(r => parseCurrencyValue(r.compensation));
-            const avgComp = compValues.length > 0
-              ? compValues.reduce((a, b) => a + b, 0) / compValues.length
-              : 0;
+            
+            // Calculate CAGR instead of average
+            const cagrValue = computeCAGR(
+              sortedRecords.map(record => ({
+                year: record.year,
+                value: parseCurrencyValue(record.compensation),
+              })),
+            );
+            const cagrPercent = cagrValue === null ? "N/A" : `${(cagrValue * 100).toFixed(1)}%`;
             const latestComp = compValues[compValues.length - 1] ?? 0;
 
             const growthRate = computeCfsnGrowth(
@@ -182,7 +169,7 @@ export default function DirectorDetailsSection({
                 <CompensationSummaryCards
                   latestAmount={formatCurrencyCompact(latestComp)}
                   latestYear={sortedRecords[sortedRecords.length - 1].year.toString()}
-                  averageAmount={formatCurrencyCompact(avgComp)}
+                  cagrAmount={cagrPercent}
                   yearsCount={sortedRecords.length}
                   growthPercent={growthLabel}
                 />

@@ -9,6 +9,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Noto Sans', 'sans-serif'],
+      },
       colors: {
         brand: {
           50: "#f5f7ff",

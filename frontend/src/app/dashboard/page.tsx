@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import CompareTab from "./components/CompareTab";
 import LookupTab from "./components/LookupTab";
+import { DashboardNavbar } from "@/components/DashboardNavbar";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"lookup" | "compare">("lookup");
@@ -36,7 +37,8 @@ export default function DashboardPage() {
       : "container mx-auto px-4 py-8";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pt-24">
+      <DashboardNavbar />
       <div className={containerClasses}>
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="flex border-b border-gray-200">

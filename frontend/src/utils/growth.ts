@@ -74,3 +74,12 @@ export const formatGrowthPercentage = (growth: number | null, fractionDigits = 1
 
   return `${percentage >= 0 ? "" : "-"}${Math.abs(percentage).toFixed(fractionDigits)}%`;
 };
+
+/**
+ * Calculate CAGR (Compound Annual Growth Rate)
+ * CAGR = (Ending Value / Beginning Value)^(1/Number of Years) - 1
+ */
+export const computeCAGR = (entries: YearValueEntry[]): number | null => {
+  return computeCfsnGrowth(entries);
+};
+

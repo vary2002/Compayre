@@ -21,11 +21,7 @@ export default function HomePage() {
                   COMPENSATION ANALYTICS
                 </h1>
                 <p className="mt-4 text-base text-gray-300 sm:text-lg">
-<<<<<<< Updated upstream
-                  Search and analyse compensation data for 1300+ executive directors
-=======
                   Search and analyse compensation data for 1250+ directors.
->>>>>>> Stashed changes
                 </p>
 
                 <div className="mt-8 flex flex-wrap justify-center gap-4">

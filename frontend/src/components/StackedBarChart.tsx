@@ -45,8 +45,8 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
   const chartHeight = 280;
   const topPad = 60;
   const bottomPad = 140;
-  const leftPad = 70;
-  const rightPad = 30;
+  const leftPad = 160;
+  const rightPad = 80;
   const chartWidth = data.length * (barWidth + barGap) + leftPad + rightPad;
 
   return (
@@ -63,7 +63,7 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
       </div>
       
       {/* Chart Container */}
-      <div className="relative bg-gradient-to-br from-slate-50 via-white to-white rounded-2xl p-10" style={{ minWidth: 900 }}>
+      <div className="relative bg-gradient-to-br from-slate-50 via-white to-white rounded-2xl p-10 flex justify-center">
         <div className="overflow-x-auto pb-4">
           <div style={{ position: 'relative', width: chartWidth, height: topPad + chartHeight + bottomPad }}>
             <svg width={chartWidth} height={topPad + chartHeight + bottomPad}>
@@ -143,20 +143,10 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
                       );
                     })}
                     
-                    {/* Total label on top with background */}
-                    <rect
-                      x={xPos + barWidth / 2 - 32}
-                      y={topPad + chartHeight - cumulativeHeight - 26}
-                      width={64}
-                      height={20}
-                      fill="white"
-                      rx={10}
-                      opacity={0.95}
-                      style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-                    />
+                    {/* Total label without background */}
                     <text
                       x={xPos + barWidth / 2}
-                      y={topPad + chartHeight - cumulativeHeight - 12}
+                      y={topPad + chartHeight - cumulativeHeight - 8}
                       textAnchor="middle"
                       fontSize={12}
                       fill="#0F172A"
@@ -165,22 +155,16 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
                       {formatCurrencyCompact(total)}
                     </text>
                     
-                    {/* Year label with styling */}
-                    <circle
-                      cx={xPos + barWidth / 2}
-                      cy={topPad + chartHeight + 16}
-                      r={4}
-                      fill="#94A3B8"
-                    />
+                    {/* Year label in FY format without dot */}
                     <text
                       x={xPos + barWidth / 2}
-                      y={topPad + chartHeight + 36}
+                      y={topPad + chartHeight + 32}
                       textAnchor="middle"
                       fontSize={15}
                       fill="#475569"
                       fontWeight={700}
                     >
-                      {d.year}
+                      FY{String(d.year).slice(-2)}
                     </text>
                   </g>
                 );
@@ -192,14 +176,14 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
                   x={-10}
                   y={-10}
                   width={chartWidth - leftPad - rightPad + 20}
-                  height={80}
+                  height={70}
                   fill="white"
                   rx={12}
                   opacity={0.8}
                 />
                 {LABELS.map((label, i) => {
-                  const xPos = (i % 2) * 300;
-                  const yPos = Math.floor(i / 2) * 28 + 5;
+                  const xPos = (i % 3) * 200;
+                  const yPos = Math.floor(i / 3) * 28 + 5;
                   
                   return (
                     <g key={label} transform={`translate(${xPos}, ${yPos})`}>

@@ -3,7 +3,7 @@
 
 import CompensationSummaryCards from "./CompensationSummaryCards";
 import { formatCurrencyCompact } from "@/utils/currency";
-import { computeCfsnGrowth } from "@/utils/growth";
+import { computeCfsnGrowth, computeCAGR } from "@/utils/growth";
 
 interface DirectorInfo {
   name: string;
@@ -97,9 +97,15 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
                 return null;
               }
               const compValues = records.map(r => parseCompensation(r.compensation));
-              const avgComp = compValues.length > 0
-                ? compValues.reduce((a, b) => a + b, 0) / compValues.length
-                : 0;
+              
+              // Calculate CAGR instead of average
+              const cagrValue = computeCAGR(
+                records.map(record => ({
+                  year: record.year,
+                  value: parseCompensation(record.compensation),
+                })),
+              );
+              const cagrPercent = cagrValue === null ? "N/A" : `${(cagrValue * 100).toFixed(1)}%`;
               const latestComp = compValues[compValues.length - 1] ?? 0;
 
               const growthRate = computeCfsnGrowth(
@@ -119,7 +125,7 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
                   <CompensationSummaryCards
                     latestAmount={formatCurrencyCompact(latestComp)}
                     latestYear={records[records.length - 1].year.toString()}
-                    averageAmount={formatCurrencyCompact(avgComp)}
+                    cagrAmount={cagrPercent}
                     yearsCount={records.length}
                     growthPercent={growthLabel}
                   />

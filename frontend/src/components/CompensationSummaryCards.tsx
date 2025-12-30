@@ -4,7 +4,7 @@
 interface CompensationSummaryCardsProps {
   latestAmount: string;
   latestYear: number | string;
-  averageAmount: string;
+  cagrAmount: string;
   yearsCount: number;
   growthPercent: string | number;
 }
@@ -12,7 +12,7 @@ interface CompensationSummaryCardsProps {
 export default function CompensationSummaryCards({
   latestAmount,
   latestYear,
-  averageAmount,
+  cagrAmount,
   yearsCount,
   growthPercent,
 }: CompensationSummaryCardsProps) {
@@ -24,8 +24,8 @@ export default function CompensationSummaryCards({
         <div className="text-xs text-gray-500 mt-1">{latestYear}</div>
       </div>
       <div className="bg-white rounded-lg p-3 border border-gray-200">
-        <div className="text-xs text-gray-600 mb-1">Average</div>
-        <div className="text-lg font-semibold text-gray-900">{averageAmount}</div>
+        <div className="text-xs text-gray-600 mb-1">CAGR</div>
+        <div className="text-lg font-semibold text-gray-900">{cagrAmount}</div>
         <div className="text-xs text-gray-500 mt-1">{yearsCount} year{yearsCount > 1 ? 's' : ''}</div>
       </div>
       <div className="bg-white rounded-lg p-3 border border-gray-200">

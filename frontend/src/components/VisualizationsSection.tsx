@@ -1,6 +1,8 @@
 // src/components/VisualizationsSection.tsx
 "use client";
 
+
+import type { MouseEvent } from "react";
 import { useState } from "react";
 import PieChart from "./PieChart";
 import MetricCard from "./MetricCard";
@@ -20,6 +22,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
     xPercent: number;
     yPercent: number;
   } | null>(null);
+  const [hoveredRemBarIndex, setHoveredRemBarIndex] = useState<number | null>(null);
   const baseYear = 2019;
   const performanceYears = Array.from({ length: 5 }, (_, idx) => baseYear + idx);
   const CRORE_IN_RUPEES = 10_000_000;
@@ -272,20 +275,65 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
         <h4 className="text-lg font-semibold text-gray-800 mb-4">
           Executive Director Remuneration Trend (5 Years)
         </h4>
-        <div className="relative h-64 flex items-end justify-around gap-2 border-b border-l border-gray-300 pb-2 pl-2">
-          {remunerationTrend.map((data, index) => (
-            <div key={index} className="flex-1 flex flex-col items-center justify-end">
-              <span className="text-xs font-semibold text-gray-700 mb-1">{formatCurrencyCompact(data.amountRupees)}</span>
-              <div 
-                className="w-full bg-blue-500 rounded-t"
-                style={{ height: `${data.heightPx}px` }}
-              ></div>
-              <span className="text-xs text-gray-600 mt-2">{toFY(2019 + data.year)}</span>
-            </div>
-          ))}
+
+        <div
+          className="relative h-64 flex items-end justify-around gap-2 border-b border-l border-gray-300 pb-2 pl-2"
+          onMouseLeave={() => setHoveredRemBarIndex(null)}
+        >
+          {remunerationTrend.map((data, index) => {
+            const yearLabel = toFY(2019 + data.year);
+            const isHovered = hoveredRemBarIndex === index;
+
+            return (
+              <div key={index} className="flex-1 flex flex-col items-center justify-end">
+                <span className="text-xs font-semibold text-gray-700 mb-1">
+                  {formatCurrencyCompact(data.amountRupees)}
+                </span>
+
+                {/* Bar */}
+                <div
+                  className="relative w-full bg-blue-500 rounded-t cursor-pointer transition-opacity"
+                  style={{
+                    height: `${data.heightPx}px`,
+                    opacity: isHovered ? 0.9 : 1,
+                  }}
+                  tabIndex={0}
+                  onMouseEnter={() => setHoveredRemBarIndex(index)}
+                  onMouseLeave={() => setHoveredRemBarIndex(null)}
+                  onFocus={() => setHoveredRemBarIndex(index)}
+                  onBlur={() => setHoveredRemBarIndex(null)}
+                  aria-label={`Remuneration ${formatCurrencyCompact(data.amountRupees)} in ${yearLabel}`}
+                >
+                  {/* Anchored Tooltip */}
+                  {isHovered && (
+                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full z-20">
+                      <div className="rounded-md bg-gray-900 px-3 py-2 text-xs text-white shadow-lg whitespace-nowrap">
+                        <div className="text-[10px] uppercase tracking-wide text-gray-300">
+                          Remuneration
+                        </div>
+                        <div className="mt-0.5 font-semibold">
+                          {formatCurrencyCompact(data.amountRupees)}
+                        </div>
+                        <div className="text-[10px] text-gray-300">{yearLabel}</div>
+                      </div>
+
+                      {/* Little caret */}
+                      <div className="mx-auto h-0 w-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-900" />
+                    </div>
+                  )}
+                </div>
+
+                <span className="text-xs text-gray-600 mt-2">{yearLabel}</span>
+              </div>
+            );
+          })}
         </div>
-        <p className="text-xs text-gray-500 mt-3">Showing average total remuneration trend over 5 years</p>
+
+        <p className="text-xs text-gray-500 mt-3">
+          Showing average total remuneration trend over 5 years
+        </p>
       </div>
+
 
       {/* Remuneration Components Breakdown */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
