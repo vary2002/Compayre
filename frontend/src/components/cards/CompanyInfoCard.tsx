@@ -1,7 +1,7 @@
 // src/components/CompanyInfoCard.tsx
 "use client";
 import { formatCurrencyCompact } from "@/utils/currency";
-import PieChart from "./PieChart";
+import PieChart from "../charts/PieChart";
 
 interface CompanyInfo {
   name: string;
@@ -67,15 +67,15 @@ export default function CompanyInfoCard({
           <div className="space-y-3">
             <div>
               <div className="text-xs text-gray-500 mb-1">ISIN</div>
-              <div className="text-sm font-medium text-gray-900 font-mono">{companyInfo.isin}</div>
+              <div className="text-sm font-medium text-gray-900">{companyInfo.isin}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">NSE Symbol</div>
-              <div className="text-sm font-medium text-gray-900 font-mono">{companyInfo.nse}</div>
+              <div className="text-sm font-medium text-gray-900">{companyInfo.nse}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">BSE Code</div>
-              <div className="text-sm font-medium text-gray-900 font-mono">{companyInfo.bse}</div>
+              <div className="text-sm font-medium text-gray-900">{companyInfo.bse}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">Sector</div>

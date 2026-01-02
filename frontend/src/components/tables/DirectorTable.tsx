@@ -64,13 +64,13 @@ export default function DirectorTable({
   };
 
   return (
-    <div className="overflow-x-auto overflow-y-auto min-h-[480px] max-h-[480px] bg-white border border-gray-200 rounded-lg shadow-sm">
-      <table className="w-full divide-y divide-gray-200 table-fixed">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <table className="w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>
-            <th className="w-1/3 px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <th className="px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
               <div className="flex items-center gap-2">
-                <span>Name</span>
+                <span>Executive Director</span>
                 <FilterDropdown
                   options={uniqueNames}
                   onSelectionChange={onNameFilterChange}
@@ -78,17 +78,7 @@ export default function DirectorTable({
                 />
               </div>
             </th>
-            <th className="w-1/3 px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
-              <div className="flex items-center gap-2">
-                <span>DIN</span>
-                <FilterDropdown
-                  options={uniqueDins}
-                  onSelectionChange={onDinFilterChange}
-                  hasActiveFilter={dinFilter !== null && Array.isArray(dinFilter) && dinFilter.length > 0}
-                />
-              </div>
-            </th>
-            <th className="w-1/3 px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
               <button
                 onClick={onCompensationSortToggle}
                 className="flex items-center gap-1 hover:text-gray-900"
@@ -104,7 +94,7 @@ export default function DirectorTable({
         <tbody className="bg-white divide-y divide-gray-200">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={3} className="px-6 py-8 text-center text-sm text-gray-500">
+              <td colSpan={2} className="px-6 py-8 text-center text-sm text-gray-500">
                 No executive directors match the selected filters
               </td>
             </tr>
@@ -112,16 +102,14 @@ export default function DirectorTable({
             data.map((director, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td 
-                  className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+                  className="px-6 py-4 text-sm font-medium cursor-pointer hover:text-blue-800"
                   onClick={() => onDirectorClick(director.name, director.din)}
                 >
-                  {director.name}
-                </td>
-                <td 
-                  className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 cursor-pointer hover:text-blue-800 hover:underline font-mono"
-                  onClick={() => onDirectorClick(director.name, director.din)}
-                >
-                  {director.din}
+                  <div className="font-semibold text-blue-600 hover:underline">{director.name}</div>
+                  <div className="text-xs text-gray-600 mt-1 flex justify-between items-center">
+                    <span className="font-mono">{director.din}</span>
+                    <span>{director.designation}</span>
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {formatCompensation(director.compensation)}

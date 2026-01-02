@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Dropdown from "@/components/Dropdown";
-import EsopValueChart from "@/components/EsopValueChart";
-import PieChart from "@/components/PieChart";
+import { Dropdown } from "@/components/forms";
+import { EsopValueChart, PieChart } from "@/components/charts";
 import { buildNiceTicks } from "@/utils/chart";
 import { formatCurrencyAxisTick, formatCurrencyCompact, formatCurrencyRaw } from "@/utils/currency";
 import { buildEsopValueSeries } from "@/utils/esop";
@@ -122,19 +121,37 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
   const allDirectors = useMemo(() => Object.values(companyDataMap).flat(), []);
 
   const directorRegistry = useMemo(() => {
-    const registry = new Map<string, DirectorIdentity>();
+    const registry = new Map<string, DirectorIdentity & { companies: Set<string> }>();
     allDirectors.forEach(({ name, din }) => {
       if (!registry.has(din)) {
-        registry.set(din, { name, din });
+        registry.set(din, { name, din, companies: new Set<string>() });
       }
     });
+    
+    // Add company information
+    Object.entries(companyDataMap).forEach(([company, directors]) => {
+      directors.forEach(director => {
+        const existing = registry.get(director.din);
+        if (existing) {
+          existing.companies.add(company);
+        }
+      });
+    });
+    
     return registry;
   }, [allDirectors]);
 
   const directorOptions = useMemo(
     () =>
       Array.from(directorRegistry.values())
-        .map(entry => ({ id: entry.din, label: `${entry.name}\nDIN: ${entry.din}`, value: entry.din }))
+        .map(entry => {
+          const companies = Array.from(entry.companies).join(", ");
+          return { 
+            id: entry.din, 
+            label: `${entry.name}\nDIN: ${entry.din}\n${companies}`, 
+            value: entry.din 
+          };
+        })
         .sort((a, b) => a.label.localeCompare(b.label)),
     [directorRegistry],
   );
@@ -230,41 +247,46 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
   };
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-900">Executive Director Comparison</h2>
-        {compareSelectedDirector && !isComparisonMode && (
-          <button
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
-            onClick={() => setIsComparisonMode(true)}
-            type="button"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            Compare Executive Directors
-          </button>
-        )}
-        {isComparisonMode && (
-          <button
-            className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
-            onClick={() => {
-              setIsComparisonMode(false);
-              setComparisonDirectors([null, null, null]);
-            }}
-            type="button"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            Exit Comparison
-          </button>
-        )}
+    <div className="mx-6 md:mx-12 lg:mx-16">
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h2 className="mb-2 text-2xl font-semibold text-gray-900">Executive Director Profile</h2>
+          <p className="text-gray-600">Select Executive Director</p>
+        </div>
+        <div>
+          {compareSelectedDirector && !isComparisonMode && (
+            <button
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              onClick={() => setIsComparisonMode(true)}
+              type="button"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              Compare Executive Directors
+            </button>
+          )}
+          {isComparisonMode && (
+            <button
+              className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
+              onClick={() => {
+                setIsComparisonMode(false);
+                setComparisonDirectors([null, null, null]);
+              }}
+              type="button"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Exit Comparison
+            </button>
+          )}
+        </div>
       </div>
 
       {isComparisonMode ? (
@@ -301,7 +323,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
         </div>
       ) : (
         <div className="mb-6">
-          <label className="mb-2 block text-sm font-medium text-gray-700">Select Executive Director to Compare</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">Select Executive Director</label>
           <div className="max-w-md">
             <Dropdown
               options={directorOptions}
@@ -552,7 +574,7 @@ function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900">Compensation Trajectory Over Time</h3>
       <div className="mt-6 space-y-6">
-        <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
+        <div className="relative w-full" style={{ aspectRatio: "3 / 1" }}>
           <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="absolute inset-0 h-full w-full">
             <line
               x1={chartPadding.left}
@@ -617,7 +639,7 @@ function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
                     fontSize={12}
                     fill="#6B7280"
                   >
-                    {year}
+                    {`FY${year.toString().slice(-2)}`}
                   </text>
                 </g>
               );

@@ -1,6 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Jura:wght@400;700&family=Play:wght@400;700&display=swap');
 @import "tailwindcss";  
 
+/* Reset default margins and padding */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
 /* Global font stack using Noto Sans */
 html, body { 
   font-family: 'Noto Sans', 'Helvetica', Arial, sans-serif;

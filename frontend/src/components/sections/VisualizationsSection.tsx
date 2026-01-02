@@ -4,8 +4,8 @@
 
 import type { MouseEvent } from "react";
 import { useState } from "react";
-import PieChart from "./PieChart";
-import MetricCard from "./MetricCard";
+import PieChart from "../charts/PieChart";
+import MetricCard from "../cards/MetricCard";
 import { formatCurrencyCompact } from "@/utils/currency";
 
 interface VisualizationsSectionProps {

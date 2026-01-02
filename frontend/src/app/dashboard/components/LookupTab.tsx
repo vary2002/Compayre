@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import Dropdown from "@/components/Dropdown";
-import CompanyInfoCard from "@/components/CompanyInfoCard";
-import DirectorTable from "@/components/DirectorTable";
-import DirectorDetailsSection from "@/components/DirectorDetailsSection";
-import VisualizationsSection from "@/components/VisualizationsSection";
+import { Dropdown } from "@/components/forms";
+import { CompanyInfoCard } from "@/components/cards";
+import { DirectorTable } from "@/components/tables";
+import { DirectorDetailsSection, VisualizationsSection } from "@/components/sections";
 import { formatCurrencyCompact } from "@/utils/currency";
 import FilterDropdown from "./FilterDropdown";
 import {
@@ -233,13 +232,10 @@ export default function LookupTab() {
   const handleToggleCompensationSort = () => {
     setCompensationSort(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
   };
-
   return (
-    <div>
-      <h2 className="mb-6 text-2xl font-semibold text-gray-900">Executive Director Compensation Analytics</h2>
-
+    <div className="mx-6 md:mx-12 lg:mx-16">
       <div className="mb-6">
-        <label className="mb-2 block text-sm font-medium text-gray-700">Select Company</label>
+        <label className="mb-3 block text-lg font-semibold text-gray-900">Select Company</label>
         <div className="max-w-md">
           <Dropdown
             options={companyOptions}

@@ -27,9 +27,9 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
     );
   }
 
-  const svgWidth = 640;
-  const svgHeight = 320;
-  const chartPadding = { top: 24, right: 36, bottom: 52, left: 72 };
+  const svgWidth = 200;
+  const svgHeight = 90;
+  const chartPadding = { top: 5, right: 34, bottom: 24, left: 40 };
   const plotWidth = svgWidth - chartPadding.left - chartPadding.right;
   const plotHeight = svgHeight - chartPadding.top - chartPadding.bottom;
   const xBand = plotWidth / Math.max(series.length, 1);
@@ -58,8 +58,8 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
       year: point.year,
       fairValue: point.fairValue,
       marketValue: point.marketValue,
-      xPercent: (x / svgWidth) * 100,
-      yPercent: (y / svgHeight) * 100,
+      xPercent: (x / svgWidth) * 120,
+      yPercent: (y / svgHeight) * 120,
     });
   };
 
@@ -68,11 +68,23 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
   return (
     <div className="rounded-lg border border-indigo-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">ESOP Valuation Trend</h3>
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fair vs Market</span>
+        <h3 className="text-xl font-semibold text-gray-900">ESOP Valuation Trend</h3>
+        <div className="flex items-center gap-8">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fair vs Market</span>
+          <div className="flex flex-wrap items-center gap-6 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <span className="h-4 w-7 rounded-sm bg-sky-400"></span>
+              <span>Fair value (bars)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-4 w-4 rounded-full bg-indigo-500"></span>
+              <span>Market value (line)</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="mt-5">
-        <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
+        <div className="relative w-full" style={{ aspectRatio: "3 / 1" }}>
           <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="absolute inset-0 h-full w-full">
             <line
               x1={chartPadding.left}
@@ -104,11 +116,11 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
                     strokeWidth={0.6}
                   />
                   <text
-                    x={chartPadding.left - 12}
+                    x={chartPadding.left - 8}
                     y={y}
                     textAnchor="end"
                     alignmentBaseline="middle"
-                    fontSize={12}
+                    fontSize={4}
                     fill="#6B7280"
                   >
                     {formatCurrencyAxisTick(tickValue)}
@@ -131,13 +143,13 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
                   />
                   <text
                     x={x}
-                    y={svgHeight - chartPadding.bottom + 24}
+                    y={svgHeight - chartPadding.bottom + 5}
                     textAnchor="middle"
                     alignmentBaseline="hanging"
-                    fontSize={12}
+                    fontSize={4}
                     fill="#6B7280"
                   >
-                    {point.year}
+                    FY{point.year.toString().slice(-2)}
                   </text>
                 </g>
               );
@@ -167,7 +179,7 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
                     height={barHeight}
                     fill="#38BDF8"
                     fillOpacity={0.7}
-                    rx={6}
+                    rx={4}
                   >
                     <title>{`FY ${point.year} • Fair Value ${formatCurrencyRaw(point.fairValue)}`}</title>
                   </rect>
@@ -177,7 +189,7 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
                     r={4}
                     fill="#8B5CF6"
                     stroke="#F8FAFC"
-                    strokeWidth={1.2}
+                    strokeWidth={1.5}
                     tabIndex={0}
                     aria-label={`FY ${point.year} market value ${formatCurrencyRaw(point.marketValue)}`}
                   />
@@ -216,17 +228,6 @@ export default function EsopValueChart({ series }: EsopValueChartProps) {
               </div>
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-6 text-xs text-gray-600">
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-6 rounded-sm bg-sky-400"></span>
-          <span>Fair value (bars)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-indigo-500"></span>
-          <span>Market value (line)</span>
         </div>
       </div>
     </div>

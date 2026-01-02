@@ -1,7 +1,7 @@
 // src/components/OtherCompaniesSection.tsx
 "use client";
 
-import CompensationSummaryCards from "./CompensationSummaryCards";
+import CompensationSummaryCards from "../cards/CompensationSummaryCards";
 import { formatCurrencyCompact } from "@/utils/currency";
 import { computeCfsnGrowth, computeCAGR } from "@/utils/growth";
 

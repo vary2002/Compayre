@@ -91,29 +91,49 @@ class CustomUser(AbstractUser):
     
     Extends Django's AbstractUser to add subscription tiers that map to
     the pricing levels in the Compayre platform:
-    - Personal (Free): Limited access
-    - Basic: Extended access
-    - Advanced: Full access
-    
-    The is_staff flag is used to designate Admin users who have control
-    over data uploads, user management, and the data entry dashboard.
+    - free (Personal): Limited access
+    - user: Standard user access
+    - paid_subscriber: Premium access
+    - admin: Admin access (via is_staff)
+    - superuser: Full access (via is_superuser)
     """
 
-    # ROLES / SUBSCRIPTION LEVELS
+    # USER ROLE CHOICES
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('paid_subscriber', 'Paid Subscriber'),
+        ('admin', 'Admin'),
+    ]
+
+    # SUBSCRIPTION CHOICES (for backwards compatibility)
     SUBSCRIPTION_CHOICES = [
         ('free', 'Personal (Free)'),
-        ('basic', 'Basic'),
-        ('advanced', 'Advanced'),
+        ('user', 'User'),
+        ('paid_subscriber', 'Paid Subscriber'),
     ]
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='user',
+        help_text="User role for access control: user, paid_subscriber, or admin"
+    )
 
     subscription_type = models.CharField(
         max_length=20,
         choices=SUBSCRIPTION_CHOICES,
-        default='free',
-        help_text="Determines the level of data access for the user."
+        default='user',
+        help_text="Subscription tier: free, user, or paid_subscriber"
     )
 
-    # Optional: Additional user profile information
+    # Additional user profile information
+    phone_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="User's 10-digit phone number."
+    )
+
     company_name = models.CharField(
         max_length=255,
         blank=True,
@@ -121,11 +141,11 @@ class CustomUser(AbstractUser):
         help_text="The company or organization associated with this user."
     )
 
-    phone_number = models.CharField(
-        max_length=20,
+    designation = models.CharField(
+        max_length=255,
         blank=True,
         null=True,
-        help_text="User's phone number."
+        help_text="User's job designation/title."
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -134,35 +154,25 @@ class CustomUser(AbstractUser):
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['subscription_type']),
+            models.Index(fields=['role']),
             models.Index(fields=['is_staff']),
+            models.Index(fields=['is_superuser']),
         ]
 
     def __str__(self):
-        return f"{self.get_full_name() or self.username} ({self.get_role_display()})"
+        return f"{self.get_full_name() or self.username} ({self.get_access_level_display()})"
 
-    @property
-    def role(self):
-        """
-        Helper property to return the effective role for frontend logic.
-        
-        Admins (is_staff or is_superuser) override subscription levels.
-        Returns:
-            str: One of 'admin', 'advanced', 'basic', or 'free'
-        """
-        if self.is_staff or self.is_superuser:
-            return 'admin'
-        return self.subscription_type
-
-    def get_role_display(self):
-        """Return human-readable role name."""
-        if self.is_staff or self.is_superuser:
+    def get_access_level_display(self):
+        """Return human-readable access level name."""
+        if self.is_superuser:
+            return 'Django Superuser'
+        elif self.is_staff:
             return 'Admin'
-        return dict(self.SUBSCRIPTION_CHOICES).get(self.subscription_type, 'Unknown')
+        return dict(self.ROLE_CHOICES).get(self.role, 'User')
 
     def has_data_access(self, data_type):
         """
-        Check if user has access to a specific data type.
+        Check if user has access to a specific data type based on role/subscription.
         
         Args:
             data_type (str): One of 'market_trends', 'company_pay', 
@@ -171,19 +181,15 @@ class CustomUser(AbstractUser):
         Returns:
             bool: True if user can access this data type
         """
-        if self.is_staff or self.is_superuser:
+        if self.is_superuser or self.is_staff:
             return True
 
-        # Personal (Free): Market trends, Company pay data
-        if self.subscription_type == 'free':
+        # User (free): Market trends, Company pay data
+        if self.role == 'user':
             return data_type in ['market_trends', 'company_pay']
 
-        # Basic: + Director pay, Salary comparison
-        if self.subscription_type == 'basic':
-            return data_type in ['market_trends', 'company_pay', 'director_pay', 'salary_comparison']
-
-        # Advanced: All features
-        if self.subscription_type == 'advanced':
+        # Paid Subscriber: All features except admin features
+        if self.role == 'paid_subscriber':
             return data_type in [
                 'market_trends', 'company_pay', 'director_pay',
                 'salary_comparison', 'transparency_index', 'projections'

@@ -56,38 +56,39 @@ export default function Dropdown({
   const [searchTerm, setSearchTerm] = useState('');
   const [singleSelected, setSingleSelected] = useState<DropdownOption | null>(null);
   const [multiSelected, setMultiSelected] = useState<DropdownOption[]>([]);
-    // Sync internal state with value prop (controlled mode)
-    useEffect(() => {
-      if (value !== undefined) {
-        if (isMultiSelect) {
-          if (Array.isArray(value)) {
-            const newSelected = normalizedOptions.filter(opt => value.includes(opt.value ?? opt.label));
-            // Only update if different
-            if (
-              newSelected.length !== multiSelected.length ||
-              newSelected.some((opt, i) => opt.id !== multiSelected[i]?.id)
-            ) {
-              setMultiSelected(newSelected);
-            }
-          } else if (value === null && multiSelected.length > 0) {
-            setMultiSelected([]);
+  
+  // Sync internal state with value prop (controlled mode) - only when value actually changes
+  useEffect(() => {
+    if (value !== undefined) {
+      if (isMultiSelect) {
+        if (Array.isArray(value)) {
+          const newSelected = normalizedOptions.filter(opt => value.includes(opt.value ?? opt.label));
+          // Only update if different
+          if (
+            newSelected.length !== multiSelected.length ||
+            newSelected.some((opt, i) => opt.id !== multiSelected[i]?.id)
+          ) {
+            setMultiSelected(newSelected);
           }
-        } else {
-          if (value === null && singleSelected !== null) {
-            setSingleSelected(null);
-          } else if (value !== null) {
-            const found = normalizedOptions.find(opt => (opt.value ?? opt.label) === value);
-            if (
-              (found && (!singleSelected || found.id !== singleSelected.id)) ||
-              (!found && singleSelected !== null)
-            ) {
-              setSingleSelected(found || null);
-            }
+        } else if (value === null && multiSelected.length > 0) {
+          setMultiSelected([]);
+        }
+      } else {
+        if (value === null && singleSelected !== null) {
+          setSingleSelected(null);
+        } else if (value !== null) {
+          const found = normalizedOptions.find(opt => (opt.value ?? opt.label) === value);
+          if (
+            (found && (!singleSelected || found.id !== singleSelected.id)) ||
+            (!found && singleSelected !== null)
+          ) {
+            setSingleSelected(found || null);
           }
         }
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value, normalizedOptions, isMultiSelect]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, isMultiSelect]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -120,6 +121,7 @@ export default function Dropdown({
   // Handle single select
   const handleSingleSelect = (option: DropdownOption) => {
     setSingleSelected(option);
+    notifySelectionChange(option);
     setIsOpen(false);
     setSearchTerm('');
   };
@@ -128,7 +130,9 @@ export default function Dropdown({
   const handleMultiSelect = (option: DropdownOption) => {
     setMultiSelected((prev) => {
       const isSelected = prev.some((item) => item.id === option.id);
-      return isSelected ? prev.filter((item) => item.id !== option.id) : [...prev, option];
+      const newSelected = isSelected ? prev.filter((item) => item.id !== option.id) : [...prev, option];
+      notifySelectionChange(newSelected);
+      return newSelected;
     });
   };
 
@@ -151,18 +155,21 @@ export default function Dropdown({
 
   // Remove individual item from multi-select
   const handleRemoveTag = (id: string | number) => {
-    setMultiSelected((prev) => prev.filter((item) => item.id !== id));
+    setMultiSelected((prev) => {
+      const newSelected = prev.filter((item) => item.id !== id);
+      notifySelectionChange(newSelected);
+      return newSelected;
+    });
   };
 
-  // Notify parent of selection changes (fixes React error)
-  React.useEffect(() => {
-    if (isMultiSelect) {
-      onSelectionChange?.(multiSelected.map((item) => item.value ?? item.label));
+  // Helper to notify parent of selection changes - called only on user interaction
+  const notifySelectionChange = (selected: DropdownOption | DropdownOption[] | null) => {
+    if (Array.isArray(selected)) {
+      onSelectionChange?.(selected.map((item) => item.value ?? item.label));
     } else {
-      onSelectionChange?.(singleSelected ? (singleSelected.value ?? singleSelected.label) : null);
+      onSelectionChange?.(selected ? (selected.value ?? selected.label) : null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [multiSelected, singleSelected]);
+  };
 
   // Get display text
   const getDisplayText = (): string => {
@@ -172,6 +179,19 @@ export default function Dropdown({
       return `${multiSelected.length} selected`;
     } else {
       return singleSelected?.label || placeholder;
+    }
+  };
+
+  // Get formatted display for single select option
+  const getFormattedDisplay = () => {
+    if (isMultiSelect) {
+      if (multiSelected.length === 0) return placeholder;
+      if (multiSelected.length === 1) return multiSelected[0].label;
+      return `${multiSelected.length} selected`;
+    } else {
+      if (!singleSelected) return placeholder;
+      const labelLines = singleSelected.label.split('\n');
+      return labelLines;
     }
   };
 
@@ -220,9 +240,26 @@ export default function Dropdown({
                 </span>
               </span>
             ))
+          ) : !isMultiSelect && singleSelected ? (
+            <div className="flex flex-col gap-0.5">
+              {(() => {
+                const display = getFormattedDisplay();
+                const displayArray = Array.isArray(display) ? display : [display];
+                return (
+                  <>
+                    <div className="font-bold text-gray-900">{displayArray[0]}</div>
+                    {displayArray.length > 1 && (
+                      <div className="text-xs text-gray-600">
+                        {displayArray.slice(1).join(' • ')}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           ) : (
             <span className={singleSelected || multiSelected.length > 0 ? 'text-gray-900' : 'text-gray-500'}>
-              {getDisplayText()}
+              {placeholder}
             </span>
           )}
         </div>

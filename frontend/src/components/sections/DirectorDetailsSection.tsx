@@ -13,12 +13,12 @@ interface DirectorDetailsSectionProps {
 }
 
 import { RefObject, useMemo } from "react";
-import CompensationSummaryCards from "./CompensationSummaryCards";
-import MetricCard from "./MetricCard";
-import PieChart from "./PieChart";
+import CompensationSummaryCards from "../cards/CompensationSummaryCards";
+import MetricCard from "../cards/MetricCard";
+import PieChart from "../charts/PieChart";
 import OtherCompaniesSection from "./OtherCompaniesSection";
 import { buildEsopValueSeries } from "@/utils/esop";
-import { StackedBarChart } from "@/components/StackedBarChart";
+import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { formatCurrencyCompact } from "@/utils/currency";
 import { computeCfsnGrowth, computeCAGR } from "@/utils/growth";
 
