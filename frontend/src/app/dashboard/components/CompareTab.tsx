@@ -7,6 +7,7 @@ import { buildNiceTicks } from "@/utils/chart";
 import { formatCurrencyAxisTick, formatCurrencyCompact, formatCurrencyRaw } from "@/utils/currency";
 import { buildEsopValueSeries } from "@/utils/esop";
 import { computeCfsnGrowth } from "@/utils/growth";
+import { apiClient } from "@/lib/api";
 import { DirectorInfo, companyDataMap } from "../data";
 
 interface CompareTabProps {
@@ -239,6 +240,11 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
       if (typeof selected === "string" || typeof selected === "number") {
         const identity = directorRegistry.get(String(selected)) ?? null;
         next[slot] = identity ? { ...identity } : null;
+        
+        // Track director selection
+        if (identity) {
+          apiClient.logSelectionActivity('directors', [identity.name]);
+        }
       } else {
         next[slot] = null;
       }
@@ -334,9 +340,17 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
                 if (selected && typeof selected === "string") {
                   const identity = directorRegistry.get(selected) ?? null;
                   setCompareSelectedDirector(identity ? { ...identity } : null);
+                  // Track director selection
+                  if (identity) {
+                    apiClient.logSelectionActivity('directors', [identity.name]);
+                  }
                 } else if (selected && typeof selected === "number") {
                   const identity = directorRegistry.get(String(selected)) ?? null;
                   setCompareSelectedDirector(identity ? { ...identity } : null);
+                  // Track director selection
+                  if (identity) {
+                    apiClient.logSelectionActivity('directors', [identity.name]);
+                  }
                 } else {
                   setCompareSelectedDirector(null);
                 }

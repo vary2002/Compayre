@@ -63,7 +63,7 @@ export default function CompanyInfoCard({
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Company Info */}
         <div className="lg:w-80">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">{companyInfo.name}</h3>
+          <h3 className="text-xl font-medium text-gray-600 mb-4">{companyInfo.name}</h3>
           <div className="space-y-3">
             <div>
               <div className="text-xs text-gray-500 mb-1">ISIN</div>
@@ -90,7 +90,7 @@ export default function CompanyInfoCard({
 
         {/* Right: Executive Director Remuneration Pie Chart */}
         <div className="flex-1 border-l border-gray-200 pl-6">
-          <h4 className="text-base font-semibold text-gray-900 mb-4">
+          <h4 className="text-base font-medium text-gray-600 mb-4">
             Executive Director Remuneration ({fiscalYear})
           </h4>
           {remunerationData.length > 0 ? (

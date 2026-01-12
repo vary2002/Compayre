@@ -129,7 +129,7 @@ export default function DirectorDetailsSection({
           <span className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-700 bg-sky-50 border border-sky-100 rounded-full">
             Company
           </span>
-          <h4 className="text-base font-semibold text-gray-900">
+          <h4 className="text-base font-medium text-gray-600">
             At {companyName}
           </h4>
         </div>

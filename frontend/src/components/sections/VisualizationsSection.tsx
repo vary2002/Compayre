@@ -272,7 +272,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Total Remuneration Trend */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4">
+        <h4 className="text-lg font-medium text-gray-600 mb-4">
           Executive Director Remuneration Trend (5 Years)
         </h4>
 
@@ -337,7 +337,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
 
       {/* Remuneration Components Breakdown */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4">
+        <h4 className="text-lg font-medium text-gray-600 mb-4">
           Remuneration Components ({toFY(2024)})
         </h4>
         <PieChart 
@@ -355,7 +355,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
 
       {/* Key Company Metrics */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm lg:col-span-2">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4">
+        <h4 className="text-lg font-medium text-gray-600 mb-4">
           Key Company Metrics (5 Years)
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

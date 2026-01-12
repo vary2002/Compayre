@@ -1,25 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SignupModalProps {
   onSwitchToLogin: () => void;
 }
 
 export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
+  const { register, isLoading } = useAuth();
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     email: "",
-    phone: "",
-    companyName: "",
+    phone_number: "",
+    company_name: "",
     designation: "",
     password: "",
-    confirmPassword: "",
+    password_confirm: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [generalError, setGeneralError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Validation helpers
   const validateEmail = (email: string): boolean => {
@@ -33,8 +36,8 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
   };
 
   const validatePassword = (password: string): boolean => {
-    // Alphanumeric and at least 8 characters
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z0-9]{8,}$/;
+    // At least 8 characters with at least one letter and one digit (special chars allowed)
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
     return passwordRegex.test(password);
   };
 
@@ -47,17 +50,17 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
     const newErrors: Record<string, string> = {};
 
     // First Name validation
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
-    } else if (!validateNoNumeric(formData.firstName)) {
-      newErrors.firstName = "First name cannot contain numbers";
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = "First name is required";
+    } else if (!validateNoNumeric(formData.first_name)) {
+      newErrors.first_name = "First name cannot contain numbers";
     }
 
     // Last Name validation
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
-    } else if (!validateNoNumeric(formData.lastName)) {
-      newErrors.lastName = "Last name cannot contain numbers";
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = "Last name is required";
+    } else if (!validateNoNumeric(formData.last_name)) {
+      newErrors.last_name = "Last name cannot contain numbers";
     }
 
     // Email validation
@@ -68,17 +71,17 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
     }
 
     // Phone validation
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = "Phone number must be 10 digits";
+    if (!formData.phone_number.trim()) {
+      newErrors.phone_number = "Phone number is required";
+    } else if (!validatePhone(formData.phone_number)) {
+      newErrors.phone_number = "Phone number must be 10 digits";
     }
 
     // Company Name validation
-    if (!formData.companyName.trim()) {
-      newErrors.companyName = "Company name is required";
-    } else if (!validateNoNumeric(formData.companyName)) {
-      newErrors.companyName = "Company name cannot contain numbers";
+    if (!formData.company_name.trim()) {
+      newErrors.company_name = "Company name is required";
+    } else if (!validateNoNumeric(formData.company_name)) {
+      newErrors.company_name = "Company name cannot contain numbers";
     }
 
     // Designation validation
@@ -96,10 +99,10 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
     }
 
     // Confirm Password validation
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+    if (!formData.password_confirm) {
+      newErrors.password_confirm = "Please confirm your password";
+    } else if (formData.password !== formData.password_confirm) {
+      newErrors.password_confirm = "Passwords do not match";
     }
 
     setErrors(newErrors);
@@ -113,21 +116,78 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: "" }));
     }
+    if (generalError) {
+      setGeneralError("");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    setIsLoading(true);
     try {
-      // API call will be added later
-      console.log("Sign up with:", formData);
-      // await signupAPI(formData);
-    } catch (error) {
-      setErrors({ general: "Sign up failed. Please try again." });
-    } finally {
-      setIsLoading(false);
+      setGeneralError("");
+      await register({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone_number: formData.phone_number,
+        company_name: formData.company_name,
+        designation: formData.designation,
+        password: formData.password,
+        password_confirm: formData.password_confirm,
+      });
+
+      setSuccessMessage("Account created successfully! Please sign in with your credentials.");
+      // Reset form
+      setFormData({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone_number: "",
+        company_name: "",
+        designation: "",
+        password: "",
+        password_confirm: "",
+      });
+
+      // Switch to login after 2 seconds
+      setTimeout(() => {
+        onSwitchToLogin();
+      }, 2000);
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      console.error('Error keys:', Object.keys(error || {}));
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      
+      if (typeof error === 'object' && error !== null) {
+        // Handle field-specific errors
+        const fieldErrors: Record<string, string> = {};
+        let hasFieldErrors = false;
+
+        for (const [key, value] of Object.entries(error)) {
+          if (Array.isArray(value)) {
+            fieldErrors[key] = value[0];
+            hasFieldErrors = true;
+          }
+        }
+
+        if (hasFieldErrors) {
+          setErrors(fieldErrors);
+          // Also show a helpful general message
+          if (fieldErrors.email) {
+            setGeneralError("❌ Email already in use. Please try a different email address.");
+          } else if (fieldErrors.phone_number) {
+            setGeneralError("❌ Phone number already in use. Please try a different number or leave it blank.");
+          }
+        } else {
+          const errorMessage = JSON.stringify(error);
+          console.error('Setting general error:', errorMessage);
+          setGeneralError(errorMessage || "Registration failed. Please try again.");
+        }
+      } else {
+        setGeneralError(error?.message || "Registration failed. Please try again.");
+      }
     }
   };
 
@@ -138,48 +198,62 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
         <p className="mt-2 text-sm text-gray-600">Join us to get started</p>
       </div>
 
+      {successMessage && (
+        <div className="rounded-lg bg-green-50 p-3 border border-green-200">
+          <p className="text-xs text-green-600">{successMessage}</p>
+        </div>
+      )}
+
+      {generalError && (
+        <div className="rounded-lg bg-red-50 p-3 border border-red-200">
+          <p className="text-xs text-red-600">{generalError}</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           {/* First Name */}
           <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
               First Name
             </label>
             <input
-              id="firstName"
-              name="firstName"
+              id="first_name"
+              name="first_name"
               type="text"
               placeholder="John"
-              value={formData.firstName}
+              value={formData.first_name}
               onChange={handleChange}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
-                errors.firstName
+              disabled={isLoading}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
+                errors.first_name
                   ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               }`}
             />
-            {errors.firstName && <p className="mt-0.5 text-xs text-red-600">{errors.firstName}</p>}
+            {errors.first_name && <p className="mt-0.5 text-xs text-red-600">{errors.first_name}</p>}
           </div>
 
           {/* Last Name */}
           <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
               Last Name
             </label>
             <input
-              id="lastName"
-              name="lastName"
+              id="last_name"
+              name="last_name"
               type="text"
               placeholder="Doe"
-              value={formData.lastName}
+              value={formData.last_name}
               onChange={handleChange}
-              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
-                errors.lastName
+              disabled={isLoading}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
+                errors.last_name
                   ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               }`}
             />
-            {errors.lastName && <p className="mt-0.5 text-xs text-red-600">{errors.lastName}</p>}
+            {errors.last_name && <p className="mt-0.5 text-xs text-red-600">{errors.last_name}</p>}
           </div>
         </div>
 
@@ -195,7 +269,8 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
             placeholder="you@example.com"
             value={formData.email}
             onChange={handleChange}
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
+            disabled={isLoading}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
               errors.email
                 ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                 : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
@@ -206,45 +281,47 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
 
         {/* Phone */}
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
             Phone Number
           </label>
           <input
-            id="phone"
-            name="phone"
+            id="phone_number"
+            name="phone_number"
             type="tel"
             placeholder="9876543210"
-            value={formData.phone}
+            value={formData.phone_number}
             onChange={handleChange}
+            disabled={isLoading}
             maxLength={10}
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
-              errors.phone
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
+              errors.phone_number
                 ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                 : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             }`}
           />
-          {errors.phone && <p className="mt-0.5 text-xs text-red-600">{errors.phone}</p>}
+          {errors.phone_number && <p className="mt-0.5 text-xs text-red-600">{errors.phone_number}</p>}
         </div>
 
         {/* Company Name */}
         <div>
-          <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">
             Company Name
           </label>
           <input
-            id="companyName"
-            name="companyName"
+            id="company_name"
+            name="company_name"
             type="text"
             placeholder="Your Company"
-            value={formData.companyName}
+            value={formData.company_name}
             onChange={handleChange}
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
-              errors.companyName
+            disabled={isLoading}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
+              errors.company_name
                 ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                 : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             }`}
           />
-          {errors.companyName && <p className="mt-0.5 text-xs text-red-600">{errors.companyName}</p>}
+          {errors.company_name && <p className="mt-0.5 text-xs text-red-600">{errors.company_name}</p>}
         </div>
 
         {/* Designation */}
@@ -259,7 +336,8 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
             placeholder="Chief Executive Officer"
             value={formData.designation}
             onChange={handleChange}
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
+            disabled={isLoading}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
               errors.designation
                 ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                 : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
@@ -280,7 +358,8 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
             placeholder="••••••••"
             value={formData.password}
             onChange={handleChange}
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
+            disabled={isLoading}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
               errors.password
                 ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                 : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
@@ -291,23 +370,24 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
 
         {/* Confirm Password */}
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700">
             Confirm Password
           </label>
           <input
-            id="confirmPassword"
-            name="confirmPassword"
+            id="password_confirm"
+            name="password_confirm"
             type="password"
             placeholder="••••••••"
-            value={formData.confirmPassword}
+            value={formData.password_confirm}
             onChange={handleChange}
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
-              errors.confirmPassword
+            disabled={isLoading}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:bg-gray-100 ${
+              errors.password_confirm
                 ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
                 : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             }`}
           />
-          {errors.confirmPassword && <p className="mt-0.5 text-xs text-red-600">{errors.confirmPassword}</p>}
+          {errors.password_confirm && <p className="mt-0.5 text-xs text-red-600">{errors.password_confirm}</p>}
         </div>
 
         {/* Submit Button */}
@@ -326,7 +406,8 @@ export function SignupModal({ onSwitchToLogin }: SignupModalProps) {
           Already have an account?{" "}
           <button
             onClick={onSwitchToLogin}
-            className="font-medium text-blue-600 hover:text-blue-700"
+            disabled={isLoading}
+            className="font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400"
             type="button"
           >
             Sign in

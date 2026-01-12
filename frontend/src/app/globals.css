@@ -28,3 +28,12 @@ html, body {
 
 /* general light site colors to match the reference */
 body{background-color: #ffffff; color: #333333}
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Filter } from "lucide-react";
+import { apiClient } from "@/lib/api";
 
 export interface FilterDropdownProps {
   options: string[];
   onSelectionChange: (value: string | number | (string | number)[] | null) => void;
   hasActiveFilter: boolean;
+  selectionType?: 'companies' | 'directors';
 }
 
 
@@ -15,7 +17,7 @@ function getOptionsKey(options: string[]) {
   return "dashboard_filterDropdown_" + btoa(options.join(","));
 }
 
-export default function FilterDropdown({ options, onSelectionChange, hasActiveFilter }: FilterDropdownProps) {
+export default function FilterDropdown({ options, onSelectionChange, hasActiveFilter, selectionType }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -61,6 +63,11 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
 
     setSelectedItems(newSelected);
     onSelectionChange(newSelected.length > 0 ? newSelected : null);
+    
+    // Track the selection
+    if (selectionType && newSelected.length > 0) {
+      apiClient.logSelectionActivity(selectionType, newSelected);
+    }
   };
 
   const handleSelectAll = () => {
@@ -70,6 +77,10 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
     } else {
       setSelectedItems(filteredOptions);
       onSelectionChange(filteredOptions);
+      // Track the select all action
+      if (selectionType) {
+        apiClient.logSelectionActivity(selectionType, filteredOptions);
+      }
     }
   };
 

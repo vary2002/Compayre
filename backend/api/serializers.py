@@ -2,6 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .models import UserActivityLog
+
 User = get_user_model()
 
 
@@ -47,7 +49,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'password', 'password_confirm',
             'first_name', 'last_name', 'phone_number', 'company_name',
-            'designation', 'role'
+            'designation'
         ]
 
     def validate_first_name(self, value):
@@ -93,15 +95,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_password(self, value):
-        """Validate password is alphanumeric with min 8 characters."""
+        """Validate password: min 8 characters with letters, numbers, and special characters allowed."""
         # Check for at least one letter
         has_letter = any(char.isalpha() for char in value)
         # Check for at least one digit
         has_digit = any(char.isdigit() for char in value)
-        # Check that it only contains alphanumeric characters
-        is_alphanumeric = value.isalnum()
 
-        if not (has_letter and has_digit and is_alphanumeric):
+        if not (has_letter and has_digit):
             raise serializers.ValidationError(
                 "Password must be at least 8 characters and contain both letters and numbers."
             )
@@ -117,8 +117,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         email = data.get('email')
         if User.objects.filter(email=email).exists():
             raise serializers.ValidationError(
-                {"email": "A user with this email address already exists."}
+                {"email": "This email address is already registered with another account. Please use a different email address."}
             )
+        
+        # Check phone number uniqueness (only if provided)
+        phone_number = data.get('phone_number')
+        if phone_number and phone_number.strip():
+            if User.objects.filter(phone_number=phone_number).exists():
+                raise serializers.ValidationError(
+                    {"phone_number": "This phone number is already registered with another account. Please use a different phone number or leave it blank."}
+                )
         
         return data
 
@@ -126,8 +134,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
         
-        # Set username as email
-        validated_data['username'] = validated_data.get('email').split('@')[0]
+        # Use email as username for Django's internal field
+        email = validated_data.get('email')
+        validated_data['username'] = email  # Set username to email for Django compatibility
         
         user = User(**validated_data)
         user.set_password(password)
@@ -140,14 +149,66 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Extended JWT token serializer.
+    Uses email for authentication instead of username.
     Includes user role, access level, and subscription info in the token payload.
     """
+    username = serializers.EmailField()  # Renamed to email for clarity, but keep username for compatibility
+    
+    def validate(self, attrs):
+        """Authenticate using email and password."""
+        email = attrs.get('username')  # Frontend sends 'username' but it's actually email
+        password = attrs.get('password')
+        
+        # Find user by email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "No active account found with the given credentials"
+            )
+        
+        # Verify password
+        if not user.check_password(password):
+            raise serializers.ValidationError(
+                "No active account found with the given credentials"
+            )
+        
+        # Check if user is active
+        if not user.is_active:
+            raise serializers.ValidationError(
+                "User account is inactive"
+            )
+        
+        # Call parent's token generation
+        refresh = self.get_token(user)
+        
+        data = {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': {
+                'id': user.id,
+                'username': user.email,  # Return email as username
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'full_name': user.get_full_name() or user.email,
+                'role': user.role,
+                'subscription_type': user.subscription_type,
+                'access_level': user.get_access_level_display(),
+                'company_name': user.company_name,
+                'phone_number': user.phone_number,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+            }
+        }
+        
+        return data
+    
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         
         # Add custom claims
-        token['username'] = user.username
         token['email'] = user.email
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
@@ -160,3 +221,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['is_superuser'] = user.is_superuser
         
         return token
+
+class UserActivityLogSerializer(serializers.ModelSerializer):
+    """
+    Serializer for UserActivityLog model.
+    Includes nested user information.
+    """
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserActivityLog
+        fields = ['id', 'user', 'activity_type', 'description', 'ip_address', 'user_agent', 'timestamp']
+        read_only_fields = ['id', 'timestamp']
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'first_name': obj.user.first_name,
+            'last_name': obj.user.last_name,
+            'email': obj.user.email,
+        }

@@ -88,6 +88,7 @@ class CompanyFinancialTimeSeries(models.Model):
 class CustomUser(AbstractUser):
     """
     Custom User model with role-based access control.
+    Uses email as the primary login credential instead of username.
     
     Extends Django's AbstractUser to add subscription tiers that map to
     the pricing levels in the Compayre platform:
@@ -97,33 +98,36 @@ class CustomUser(AbstractUser):
     - admin: Admin access (via is_staff)
     - superuser: Full access (via is_superuser)
     """
+    
+    # Email is unique and required for login
+    email = models.EmailField(unique=True, blank=False)
 
     # USER ROLE CHOICES
     ROLE_CHOICES = [
         ('user', 'User'),
-        ('paid_subscriber', 'Paid Subscriber'),
+        ('subscriber', 'Subscriber'),
         ('admin', 'Admin'),
     ]
 
     # SUBSCRIPTION CHOICES (for backwards compatibility)
     SUBSCRIPTION_CHOICES = [
-        ('free', 'Personal (Free)'),
         ('user', 'User'),
-        ('paid_subscriber', 'Paid Subscriber'),
+        ('subscriber', 'Subscriber'),
+        ('admin', 'Admin'),
     ]
 
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
         default='user',
-        help_text="User role for access control: user, paid_subscriber, or admin"
+        help_text="User role: user, subscriber, or admin"
     )
 
     subscription_type = models.CharField(
         max_length=20,
         choices=SUBSCRIPTION_CHOICES,
         default='user',
-        help_text="Subscription tier: free, user, or paid_subscriber"
+        help_text="Subscription tier: user, subscriber, or admin"
     )
 
     # Additional user profile information
@@ -131,7 +135,8 @@ class CustomUser(AbstractUser):
         max_length=20,
         blank=True,
         null=True,
-        help_text="User's 10-digit phone number."
+        unique=True,
+        help_text="User's 10-digit phone number (unique, optional)."
     )
 
     company_name = models.CharField(
@@ -157,6 +162,7 @@ class CustomUser(AbstractUser):
             models.Index(fields=['role']),
             models.Index(fields=['is_staff']),
             models.Index(fields=['is_superuser']),
+            models.Index(fields=['email']),
         ]
 
     def __str__(self):
@@ -196,3 +202,37 @@ class CustomUser(AbstractUser):
             ]
 
         return False
+
+
+class UserActivityLog(models.Model):
+    """
+    Logs user activities for tracking and audit purposes.
+    Records login, logout, and other important user actions.
+    """
+    
+    ACTIVITY_TYPES = [
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('registration', 'Registration'),
+        ('password_change', 'Password Change'),
+        ('profile_update', 'Profile Update'),
+        ('data_access', 'Data Access'),
+        ('error', 'Error'),
+    ]
+    
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activity_logs')
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPES)
+    description = models.TextField(blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['user', '-timestamp']),
+            models.Index(fields=['activity_type', '-timestamp']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.activity_type} at {self.timestamp}"

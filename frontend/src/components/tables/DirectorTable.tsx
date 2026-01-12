@@ -68,7 +68,7 @@ export default function DirectorTable({
       <table className="w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>
-            <th className="px-6 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
               <div className="flex items-center gap-2">
                 <span>Executive Director</span>
                 <FilterDropdown
@@ -106,7 +106,7 @@ export default function DirectorTable({
                   onClick={() => onDirectorClick(director.name, director.din)}
                 >
                   <div className="font-semibold text-blue-600 hover:underline">{director.name}</div>
-                  <div className="text-xs text-gray-600 mt-1 flex justify-between items-center">
+                  <div className="text-xs text-gray-600 mt-1 flex gap-6">
                     <span className="font-mono">{director.din}</span>
                     <span>{director.designation}</span>
                   </div>
