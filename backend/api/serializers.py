@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import UserActivityLog
+from .models import UserActivityLog, Company, Director, DirectorRemuneration, CompanyFinancialTimeSeries, PeerComparison
 
 User = get_user_model()
 
@@ -25,7 +25,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_access_level(self, obj):
-        return obj.get_access_level_display()
+        return obj.role
 
     def get_full_name(self, obj):
         return obj.get_full_name() or obj.username
@@ -194,7 +194,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'full_name': user.get_full_name() or user.email,
                 'role': user.role,
                 'subscription_type': user.subscription_type,
-                'access_level': user.get_access_level_display(),
+                'access_level': user.role,
                 'company_name': user.company_name,
                 'phone_number': user.phone_number,
                 'is_staff': user.is_staff,
@@ -215,7 +215,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['full_name'] = user.get_full_name()
         token['role'] = user.role
         token['subscription_type'] = user.subscription_type
-        token['access_level'] = user.get_access_level_display()
+        token['access_level'] = user.role
         token['company_name'] = user.company_name
         token['is_admin'] = user.is_staff or user.is_superuser
         token['is_superuser'] = user.is_superuser
@@ -241,3 +241,117 @@ class UserActivityLogSerializer(serializers.ModelSerializer):
             'last_name': obj.user.last_name,
             'email': obj.user.email,
         }
+
+
+# --- Data Model Serializers ---
+
+class CompanySerializer(serializers.ModelSerializer):
+    """
+    Serializer for Company model.
+    """
+    class Meta:
+        model = Company
+        fields = ['company_id', 'name', 'sector', 'industry', 'index', 'employees', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class DirectorSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Director model.
+    """
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    
+    class Meta:
+        model = Director
+        fields = [
+            'director_id', 'name', 'company', 'company_name', 'designation', 'category',
+            'qualification', 'dob', 'promoter_status', 'gender', 'appointment_date',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class DirectorRemunerationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for DirectorRemuneration model.
+    """
+    director_name = serializers.CharField(source='director.name', read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    
+    class Meta:
+        model = DirectorRemuneration
+        fields = [
+            'id', 'company', 'company_name', 'director', 'director_name', 'fy_end_date', 'fy_label',
+            'basic_salary', 'pf', 'perqs', 'bonus', 'pay_excl_esops', 'esops', 'total_remuneration',
+            'options_granted', 'discount', 'fair_value', 'aggregate_value', 'remuneration_status',
+            'comments', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class CompanyFinancialTimeSeriesSerializer(serializers.ModelSerializer):
+    """
+    Serializer for CompanyFinancialTimeSeries model.
+    """
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    
+    class Meta:
+        model = CompanyFinancialTimeSeries
+        fields = [
+            'id', 'company', 'company_name', 'fy_end_date', 'fy_label',
+            'total_income', 'pat', 'roa', 'employee_cost', 'mcap', 'employees',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class PeerComparisonSerializer(serializers.ModelSerializer):
+    """
+    Serializer for PeerComparison model.
+    """
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    peer_company_name = serializers.CharField(source='peer_company.name', read_only=True)
+    
+    class Meta:
+        model = PeerComparison
+        fields = [
+            'id', 'company', 'company_name', 'peer_company', 'peer_company_name',
+            'peer_position', 'salary_to_median_emp_pay', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+# Nested serializers for detailed company information
+
+class CompanyDetailedSerializer(serializers.ModelSerializer):
+    """
+    Detailed serializer for Company with related data.
+    """
+    financial_timeseries = CompanyFinancialTimeSeriesSerializer(many=True, read_only=True)
+    directors = DirectorSerializer(many=True, read_only=True)
+    peer_comparisons = PeerComparisonSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Company
+        fields = [
+            'company_id', 'name', 'sector', 'industry', 'index', 'employees',
+            'financial_timeseries', 'directors', 'peer_comparisons', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class DirectorDetailedSerializer(serializers.ModelSerializer):
+    """
+    Detailed serializer for Director with remuneration data.
+    """
+    remunerations = DirectorRemunerationSerializer(many=True, read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    
+    class Meta:
+        model = Director
+        fields = [
+            'director_id', 'name', 'company', 'company_name', 'designation', 'category',
+            'qualification', 'dob', 'promoter_status', 'gender', 'appointment_date',
+            'remunerations', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']

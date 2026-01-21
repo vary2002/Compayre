@@ -375,3 +375,363 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+// --- Data Models ---
+
+export interface Company {
+  company_id: string;
+  name: string;
+  sector: string | null;
+  industry: string | null;
+  index: string | null;
+  employees: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyDropdown {
+  company_id: string;
+  name: string;
+}
+
+export interface Director {
+  director_id: string;
+  name: string;
+  company: string;
+  company_name: string;
+  designation: string | null;
+  category: string | null;
+  qualification: string | null;
+  dob: string | null;
+  promoter_status: string | null;
+  gender: string | null;
+  appointment_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectorDropdown {
+  director_id: string;
+  name: string;
+  company__name: string;
+}
+
+export interface DirectorRemuneration {
+  id: number;
+  company: string;
+  company_name: string;
+  director: string;
+  director_name: string;
+  fy_end_date: string;
+  fy_label: string;
+  basic_salary: number | null;
+  pf: number | null;
+  perqs: number | null;
+  bonus: number | null;
+  pay_excl_esops: number | null;
+  esops: number | null;
+  total_remuneration: number | null;
+  options_granted: number | null;
+  discount: number | null;
+  fair_value: number | null;
+  aggregate_value: number | null;
+  remuneration_status: string | null;
+  comments: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyFinancialTimeSeries {
+  id: number;
+  company: string;
+  company_name: string;
+  fy_end_date: string;
+  fy_label: string;
+  total_income: number | null;
+  pat: number | null;
+  roa: number | null;
+  employee_cost: number | null;
+  mcap: number | null;
+  employees: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PeerComparison {
+  id: number;
+  company: string;
+  company_name: string;
+  peer_company: string;
+  peer_company_name: string;
+  peer_position: number;
+  salary_to_median_emp_pay: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// --- Data API Methods ---
+
+class DataApiClient {
+  private baseUrl: string;
+  private apiClient: typeof apiClient;
+
+  constructor(baseUrl: string = API_BASE_URL, apiClient_: typeof apiClient = apiClient) {
+    this.baseUrl = baseUrl;
+    this.apiClient = apiClient_;
+  }
+
+  // --- Companies ---
+
+  async getCompanies(
+    page: number = 1,
+    pageSize: number = 50,
+    sector?: string,
+    industry?: string,
+    search?: string
+  ): Promise<{ results: Company[]; count: number; next: string | null; previous: string | null }> {
+    let url = `${this.baseUrl}/companies/?page=${page}&page_size=${pageSize}`;
+    
+    if (sector) url += `&sector=${encodeURIComponent(sector)}`;
+    if (industry) url += `&industry=${encodeURIComponent(industry)}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch companies: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getCompanyDropdown(): Promise<CompanyDropdown[]> {
+    const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/companies/dropdown/`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch companies dropdown: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getCompanyDetails(companyId: string): Promise<Company> {
+    const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/companies/${companyId}/`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch company details: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getSectors(): Promise<{ sectors: string[] }> {
+    const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/companies/sectors/`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch sectors: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getIndustries(): Promise<{ industries: string[] }> {
+    const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/companies/industries/`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch industries: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // --- Directors ---
+
+  async getDirectors(
+    page: number = 1,
+    pageSize: number = 50,
+    companyId?: string,
+    category?: string,
+    search?: string
+  ): Promise<{ results: Director[]; count: number; next: string | null; previous: string | null }> {
+    let url = `${this.baseUrl}/directors/?page=${page}&page_size=${pageSize}`;
+    
+    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
+    if (category) url += `&category=${encodeURIComponent(category)}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch directors: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getDirectorDropdown(companyId?: string): Promise<DirectorDropdown[]> {
+    let url = `${this.baseUrl}/directors/dropdown/`;
+    if (companyId) url += `?company_id=${encodeURIComponent(companyId)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch directors dropdown: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getDirectorsByCompany(companyId: string): Promise<{ company: { id: string; name: string }; directors: Director[] }> {
+    const response = await this.apiClient.fetchWithAuth(
+      `${this.baseUrl}/directors/by_company/?company_id=${encodeURIComponent(companyId)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch directors by company: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getDirectorDetails(directorId: string): Promise<Director> {
+    const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/directors/${directorId}/`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch director details: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // --- Director Remuneration ---
+
+  async getDirectorRemuneration(
+    page: number = 1,
+    pageSize: number = 50,
+    directorId?: string,
+    companyId?: string,
+    fyLabel?: string
+  ): Promise<{ results: DirectorRemuneration[]; count: number; next: string | null; previous: string | null }> {
+    let url = `${this.baseUrl}/director-remuneration/?page=${page}&page_size=${pageSize}`;
+    
+    if (directorId) url += `&director=${encodeURIComponent(directorId)}`;
+    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
+    if (fyLabel) url += `&fy_label=${encodeURIComponent(fyLabel)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch director remuneration: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getDirectorRemunerationTimeSeries(directorId: string, companyId?: string): Promise<{ director_id: string; remuneration_data: any[] }> {
+    let url = `${this.baseUrl}/director-remuneration/by_director/?director_id=${encodeURIComponent(directorId)}`;
+    if (companyId) url += `&company_id=${encodeURIComponent(companyId)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch director remuneration time series: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getCompanyRemunerationData(companyId: string): Promise<{ company: { id: string; name: string }; remuneration_data: DirectorRemuneration[] }> {
+    const response = await this.apiClient.fetchWithAuth(
+      `${this.baseUrl}/director-remuneration/by_company/?company_id=${encodeURIComponent(companyId)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch company remuneration data: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // --- Financial Time Series ---
+
+  async getFinancialTimeSeries(
+    page: number = 1,
+    pageSize: number = 50,
+    companyId?: string,
+    fyLabel?: string
+  ): Promise<{ results: CompanyFinancialTimeSeries[]; count: number; next: string | null; previous: string | null }> {
+    let url = `${this.baseUrl}/financial-timeseries/?page=${page}&page_size=${pageSize}`;
+    
+    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
+    if (fyLabel) url += `&fy_label=${encodeURIComponent(fyLabel)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch financial time series: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getCompanyFinancialData(companyId: string): Promise<{ company: { id: string; name: string }; financial_data: any[] }> {
+    const response = await this.apiClient.fetchWithAuth(
+      `${this.baseUrl}/financial-timeseries/by_company/?company_id=${encodeURIComponent(companyId)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch company financial data: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async compareCompaniesFinancial(companyIds: string[], metric: string = 'total_income'): Promise<{ metric: string; comparison_data: Record<string, any[]> }> {
+    const url = `${this.baseUrl}/financial-timeseries/comparison/?${companyIds.map(id => `company_ids=${encodeURIComponent(id)}`).join('&')}&metric=${encodeURIComponent(metric)}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to compare companies financial data: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // --- Peer Comparisons ---
+
+  async getPeerComparisons(
+    page: number = 1,
+    pageSize: number = 50,
+    companyId?: string,
+    peerPosition?: number
+  ): Promise<{ results: PeerComparison[]; count: number; next: string | null; previous: string | null }> {
+    let url = `${this.baseUrl}/peer-comparisons/?page=${page}&page_size=${pageSize}`;
+    
+    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
+    if (peerPosition) url += `&peer_position=${peerPosition}`;
+
+    const response = await this.apiClient.fetchWithAuth(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch peer comparisons: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getCompanyPeerComparisons(companyId: string): Promise<{ company: { id: string; name: string }; peers: PeerComparison[] }> {
+    const response = await this.apiClient.fetchWithAuth(
+      `${this.baseUrl}/peer-comparisons/by_company/?company_id=${encodeURIComponent(companyId)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch company peer comparisons: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+}
+
+export const dataApi = new DataApiClient();
+
