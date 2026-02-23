@@ -26,7 +26,7 @@ from .serializers import (
     CompanySerializer, DirectorSerializer, DirectorRemunerationSerializer,
     CompanyFinancialTimeSeriesSerializer, PeerComparisonSerializer
 )
-from .permissions import IsAdmin
+from .permissions import IsAdmin, IsSubscriberOrAdmin
 from .models import (
     CustomUser, UserActivityLog, Company, Director, DirectorRemuneration,
     CompanyFinancialTimeSeries, PeerComparison
@@ -157,9 +157,47 @@ class UserViewSet(viewsets.ModelViewSet):
         )
         return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdmin], url_path='set_subscription')
+    def set_subscription(self, request, pk=None):
+        """Admin endpoint to set user subscription type."""
+        user = self.get_object()
+        subscription_type = request.data.get('subscription_type')
+        
+        if not subscription_type:
+            return Response(
+                {'error': 'subscription_type is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate subscription type
+        valid_types = ['user', 'subscriber', 'admin']
+        if subscription_type not in valid_types:
+            return Response(
+                {'error': f'Invalid subscription_type. Must be one of: {valid_types}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update subscription
+        old_subscription = user.subscription_type
+        user.subscription_type = subscription_type
+        user.role = subscription_type  # Keep role in sync with subscription_type
+        user.save()
+        
+        # Log the activity
+        UserActivityLog.objects.create(
+            user=user,
+            activity_type='profile_update',
+            description=f'Subscription updated from {old_subscription} to {subscription_type} by admin {request.user.username}',
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+        
+        serializer = CustomUserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for viewing user activity logs (read-only)."""
+
+class UserActivityLogViewSet(viewsets.ModelViewSet):
+    """ViewSet for viewing and creating user activity logs."""
     serializer_class = UserActivityLogSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -173,8 +211,18 @@ class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         if self.request.user.is_staff:
             return UserActivityLog.objects.all()
         return UserActivityLog.objects.filter(user=self.request.user)
+    
+    # Disable update and delete methods
+    def update(self, request, *args, **kwargs):
+        return Response({'detail': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
+    def partial_update(self, request, *args, **kwargs):
+        return Response({'detail': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
+    def destroy(self, request, *args, **kwargs):
+        return Response({'detail': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='log-selection')
     def log_selection(self, request):
         """Log user selection activity (companies or directors)."""
         activity_type = request.data.get('activity_type')
@@ -208,10 +256,12 @@ class CompanyViewSet(viewsets.ReadOnlyModelViewSet):
     - Filter by sector, industry
     - Search by name
     - Get company details
+    
+    REQUIRES: Subscriber or Admin role
     """
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['sector', 'industry', 'index']
     search_fields = ['name', 'company_id']
@@ -253,10 +303,12 @@ class DirectorViewSet(viewsets.ReadOnlyModelViewSet):
     - Filter by company, category
     - Search by name
     - Get directors by company
+    
+    REQUIRES: Subscriber or Admin role
     """
     queryset = Director.objects.all()
     serializer_class = DirectorSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['company', 'category']
     search_fields = ['name', 'director_id']
@@ -315,10 +367,12 @@ class DirectorRemunerationViewSet(viewsets.ReadOnlyModelViewSet):
     - Filter by director, company, fiscal year
     - Get remuneration time-series for a director
     - Get remuneration data for a company
+    
+    REQUIRES: Subscriber or Admin role
     """
     queryset = DirectorRemuneration.objects.all()
     serializer_class = DirectorRemunerationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['company', 'director', 'fy_label']
     search_fields = ['director__name', 'company__name']
@@ -391,10 +445,12 @@ class CompanyFinancialTimeSeriesViewSet(viewsets.ReadOnlyModelViewSet):
     - Filter by company, fiscal year
     - Get financial data for specific company
     - Compare financial metrics across companies
+    
+    REQUIRES: Subscriber or Admin role
     """
     queryset = CompanyFinancialTimeSeries.objects.all()
     serializer_class = CompanyFinancialTimeSeriesSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['company', 'fy_label']
     search_fields = ['company__name']
@@ -483,10 +539,12 @@ class PeerComparisonViewSet(viewsets.ReadOnlyModelViewSet):
     - List all peer comparisons
     - Filter by company, peer position
     - Get peers for specific company
+    
+    REQUIRES: Subscriber or Admin role
     """
     queryset = PeerComparison.objects.all()
     serializer_class = PeerComparisonSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['company', 'peer_position']
     ordering_fields = ['peer_position']

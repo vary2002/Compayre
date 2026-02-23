@@ -1,3 +1,9 @@
+# Docker Compose Configuration
+# NOTE: This is for PRODUCTION DEPLOYMENT only
+# For local development, run backend and frontend separately:
+#   Backend:  cd backend && python manage.py runserver
+#   Frontend: cd frontend && npm run dev
+
 version: '3.8'
 services:
   backend:

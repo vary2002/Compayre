@@ -207,7 +207,7 @@ export default function Dropdown({
       >
         <div
           className={
-            `flex-1 flex flex-wrap gap-1 items-center overflow-x-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-blue-50` +
+            `flex-1 flex flex-wrap gap-1 items-center overflow-hidden` +
             (isMultiSelect && multiSelected.length > 0 ? ' max-h-[2.5rem] min-h-[2.5rem]' : '')
           }
           style={isMultiSelect && multiSelected.length > 0 ? { maxHeight: '2.5rem', minHeight: '2.5rem' } : undefined}
@@ -326,7 +326,8 @@ export default function Dropdown({
                 // Split label by newline to support multi-line display
                 const labelLines = option.label.split('\n');
                 const mainLabel = labelLines[0];
-                const subLabel = labelLines.slice(1).join('\n');
+                const dinLine = labelLines[1] || ''; // Second line (DIN)
+                const companyLines = labelLines.slice(2); // Third line onwards (company names)
 
                 return (
                   <button
@@ -347,7 +348,16 @@ export default function Dropdown({
                     )}
                     <div className="flex-1">
                       <div className="font-semibold">{mainLabel}</div>
-                      {subLabel && <div className="text-xs text-gray-500 mt-0.5">{subLabel}</div>}
+                      {(dinLine || companyLines.length > 0) && (
+                        <div className="flex justify-between items-center gap-4 mt-0.5">
+                          {dinLine && <div className="text-xs text-gray-500 text-left">{dinLine}</div>}
+                          {companyLines.length > 0 && (
+                            <div className="text-xs text-gray-500 text-right flex-1">
+                              {companyLines.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {!isMultiSelect && isSelected && <span className="text-blue-600 font-bold">✓</span>}
                   </button>

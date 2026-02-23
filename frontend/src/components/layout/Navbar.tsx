@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { LogOut, User, Settings } from "lucide-react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,13 +15,45 @@ export function Navbar() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const scrollDirection = useScrollDirection();
   const { user, logout, isAuthenticated } = useAuth();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Hide navbar when scrolling down, show when scrolling up or at top
   const isVisible = scrollDirection === null || scrollDirection === 'up';
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
+
   const handleLogout = async () => {
     await logout();
     setShowDropdown(false);
+  };
+
+  const handleDashboardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      alert("Please login to access the dashboard.");
+      setAuthModalOpen(true);
+      return;
+    }
+
+    if (user && user.role !== "subscriber" && user.role !== "admin" && !user.is_staff) {
+      e.preventDefault();
+      alert("You are not subscribed for this service.");
+    }
   };
 
   const displayName = user?.first_name && user?.last_name 
@@ -57,6 +89,7 @@ export function Navbar() {
                 <Link
                   key={item}
                   href={href}
+                  onClick={item === "Dashboard" ? handleDashboardClick : undefined}
                   className="group relative text-base font-medium text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   {item}
@@ -79,16 +112,13 @@ export function Navbar() {
                 Log In
               </button>
             ) : (
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-100 px-4 py-2.5 font-medium text-blue-700 hover:bg-blue-200 transition-colors"
                 >
                   <User size={18} />
-                  <div className="flex flex-col items-start">
-                    <span>{displayName}</span>
-                    <span className="text-xs text-blue-600 capitalize">{user?.role || 'user'}</span>
-                  </div>
+                  <span>{displayName}</span>
                 </button>
                 {showDropdown && (
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
@@ -158,7 +188,10 @@ export function Navbar() {
             <div className="container-max flex flex-col gap-1 py-3 text-sm">
               <Link 
                 href="/dashboard" 
-                onClick={() => setOpen(false)}
+                onClick={(e) => {
+                  handleDashboardClick(e);
+                  if (!e.defaultPrevented) setOpen(false);
+                }}
                 className="px-4 py-2.5 text-gray-700 hover:bg-gray-50 rounded-md transition-colors font-medium"
               >
                 Dashboard

@@ -254,10 +254,9 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
 
   return (
     <div className="mx-6 md:mx-12 lg:mx-16">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-2 flex items-start justify-between">
         <div>
-          <h2 className="mb-2 text-2xl font-semibold text-gray-900">Executive Director Profile</h2>
-          <p className="text-gray-600">Select Executive Director</p>
+          <h2 className="text-2xl font-semibold text-gray-900">Executive Director Profile</h2>
         </div>
         <div>
           {compareSelectedDirector && !isComparisonMode && (
