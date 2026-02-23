@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import Dropdown from "@/components/Dropdown";
-import CompanyInfoCard from "@/components/CompanyInfoCard";
-import DirectorTable from "@/components/DirectorTable";
-import DirectorDetailsSection from "@/components/DirectorDetailsSection";
-import VisualizationsSection from "@/components/VisualizationsSection";
+import { Dropdown } from "@/components/forms";
+import { CompanyInfoCard } from "@/components/cards";
+import { DirectorTable } from "@/components/tables";
+import { DirectorDetailsSection, VisualizationsSection } from "@/components/sections";
 import { formatCurrencyCompact } from "@/utils/currency";
 import FilterDropdown from "./FilterDropdown";
 import {
@@ -233,75 +232,101 @@ export default function LookupTab() {
   const handleToggleCompensationSort = () => {
     setCompensationSort(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
   };
-
   return (
-    <div>
-      <h2 className="mb-6 text-2xl font-semibold text-gray-900">Executive Director Compensation Analytics</h2>
+    <div className="mx-6 md:mx-12 lg:mx-16">
+      {/* Company Selection, Profile and Directors Section */}
+      {selectedCompany && typeof selectedCompany === "string" && selectedCompanyData.length > 0 ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mb-6">
+          {/* Company Selection */}
+          <div className="mb-6">
+            <label className="mb-3 block text-xl font-bold text-gray-950">Select Company</label>
+            <div className="max-w-md">
+              <Dropdown
+                options={companyOptions}
+                placeholder="Select a company..."
+                isMultiSelect={false}
+                isSearchable
+                onSelectionChange={setSelectedCompany}
+                value={selectedCompany}
+                showSelectAll={false}
+                showReset={false}
+              />
+            </div>
+          </div>
 
-      <div className="mb-6">
-        <label className="mb-2 block text-sm font-medium text-gray-700">Select Company</label>
-        <div className="max-w-md">
-          <Dropdown
-            options={companyOptions}
-            placeholder="Select a company..."
-            isMultiSelect={false}
-            isSearchable
-            onSelectionChange={setSelectedCompany}
-            value={selectedCompany}
-            showSelectAll={false}
-            showReset={false}
-          />
+          {/* Company Profile */}
+          {companyInfo[selectedCompany] && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <CompanyInfoCard
+                companyInfo={companyInfo[selectedCompany]}
+                fiscalYear={directorRemunerationSummary?.fiscalYear ?? (latestCompanyYear ? toFY(latestCompanyYear) : toFY(2025))}
+                remunerationData={directorRemunerationSummary?.chartData ?? []}
+                totalRemuneration={directorRemunerationSummary?.totalAmount ?? formatCurrencyCompact(0)}
+              />
+            </div>
+          )}
+
+          {/* Executive Directors List */}
+          <div>
+            <h3 className="mb-4 text-lg font-medium text-gray-600">
+              Executive Directors at {typeof selectedCompany === "string" ? selectedCompany : "Selected Company"}
+            </h3>
+
+            <DirectorTable
+              data={filteredAndSortedData}
+              uniqueNames={uniqueNames}
+              uniqueDins={uniqueDins}
+              uniqueDesignations={uniqueDesignations}
+              nameFilter={nameFilter}
+              dinFilter={dinFilter}
+              designationFilter={designationFilter}
+              compensationSort={compensationSort}
+              onNameFilterChange={value => setNameFilter(Array.isArray(value) ? value : value === null ? null : [value])}
+              onDinFilterChange={value => setDinFilter(Array.isArray(value) ? value : value === null ? null : [value])}
+              onDesignationFilterChange={value =>
+                setDesignationFilter(Array.isArray(value) ? value : value === null ? null : [value])
+              }
+              onCompensationSortToggle={handleToggleCompensationSort}
+              onDirectorClick={handleDirectorClick}
+              FilterDropdown={FilterDropdown}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mb-6">
+          <label className="mb-3 block text-xl font-bold text-gray-950">Select Company</label>
+          <div className="max-w-md">
+            <Dropdown
+              options={companyOptions}
+              placeholder="Select a company..."
+              isMultiSelect={false}
+              isSearchable
+              onSelectionChange={setSelectedCompany}
+              value={selectedCompany}
+              showSelectAll={false}
+              showReset={false}
+            />
+          </div>
+        </div>
+      )}
 
-      {selectedCompany && typeof selectedCompany === "string" && companyInfo[selectedCompany] && (
-        <CompanyInfoCard
-          companyInfo={companyInfo[selectedCompany]}
-          fiscalYear={directorRemunerationSummary?.fiscalYear ?? (latestCompanyYear ? toFY(latestCompanyYear) : toFY(2025))}
-          remunerationData={directorRemunerationSummary?.chartData ?? []}
-          totalRemuneration={directorRemunerationSummary?.totalAmount ?? formatCurrencyCompact(0)}
+      {/* Director Details Section */}
+      {selectedDirector && typeof selectedCompany === "string" && (
+        <DirectorDetailsSection
+          director={selectedDirector}
+          companyName={selectedCompany}
+          companyData={selectedCompanyData}
+          directorDetailsRef={directorDetailsRef}
+          onClose={() => setSelectedDirector(null)}
+          toFY={toFY}
+          otherCompanies={directorAllCompaniesData[selectedDirector.din]}
         />
       )}
 
+      {/* Company Metrics/Visualizations Section */}
       {selectedCompany && selectedCompanyData.length > 0 && (
-        <div className="mt-6">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">
-            Executive Directors at {typeof selectedCompany === "string" ? selectedCompany : "Selected Company"}
-          </h3>
-
-          <DirectorTable
-            data={filteredAndSortedData}
-            uniqueNames={uniqueNames}
-            uniqueDins={uniqueDins}
-            uniqueDesignations={uniqueDesignations}
-            nameFilter={nameFilter}
-            dinFilter={dinFilter}
-            designationFilter={designationFilter}
-            compensationSort={compensationSort}
-            onNameFilterChange={value => setNameFilter(Array.isArray(value) ? value : value === null ? null : [value])}
-            onDinFilterChange={value => setDinFilter(Array.isArray(value) ? value : value === null ? null : [value])}
-            onDesignationFilterChange={value =>
-              setDesignationFilter(Array.isArray(value) ? value : value === null ? null : [value])
-            }
-            onCompensationSortToggle={handleToggleCompensationSort}
-            onDirectorClick={handleDirectorClick}
-            FilterDropdown={FilterDropdown}
-          />
-
-          {selectedDirector && typeof selectedCompany === "string" && (
-            <>
-              <DirectorDetailsSection
-                director={selectedDirector}
-                companyName={selectedCompany}
-                companyData={selectedCompanyData}
-                directorDetailsRef={directorDetailsRef}
-                onClose={() => setSelectedDirector(null)}
-                toFY={toFY}
-                otherCompanies={directorAllCompaniesData[selectedDirector.din]}
-              />
-            </>
-          )}
-
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mt-12">
+          <h2 className="mb-6 text-2xl font-bold text-gray-950">Company Metrics</h2>
           <VisualizationsSection toFY={toFY} />
         </div>
       )}

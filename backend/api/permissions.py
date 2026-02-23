@@ -12,6 +12,20 @@ class IsAdmin(permissions.BasePermission):
         return bool(request.user and (request.user.is_staff or request.user.is_superuser))
 
 
+class IsSubscriberOrAdmin(permissions.BasePermission):
+    """
+    Permission class for Subscriber and Admin users only.
+    Regular users without subscription cannot access.
+    """
+    message = "You are not subscribed for this service."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        # Allow access if user role is 'subscriber' or 'admin', or if they're staff/superuser
+        return request.user.role in ['subscriber', 'admin'] or request.user.is_staff or request.user.is_superuser
+
+
 class IsAdvancedOrAdmin(permissions.BasePermission):
     """
     Permission for Advanced subscription or Admin users.

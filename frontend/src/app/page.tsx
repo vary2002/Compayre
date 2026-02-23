@@ -1,8 +1,8 @@
 // src/app/page.tsx
 import Link from "next/link";
 import Image from 'next/image'
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 
 export default function HomePage() {
   return (
@@ -21,7 +21,7 @@ export default function HomePage() {
                   COMPENSATION ANALYTICS
                 </h1>
                 <p className="mt-4 text-base text-gray-300 sm:text-lg">
-                  Search and analyse compensation data for 1300+ executive directors
+                  Search and analyse compensation data for 1250+ directors.
                 </p>
 
                 <div className="mt-8 flex flex-wrap justify-center gap-4">
