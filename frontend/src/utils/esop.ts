@@ -6,9 +6,9 @@ export type EsopSeriesPoint = {
 
 export type EsopRecordLike = {
   year: number;
-  fairValue?: string;
-  aggregateValue?: string;
-  esopValue?: string;
+  esopFairValue?: string;
+  optionsAggregateValue?: string;
+  esopMarketValue?: string;
 };
 
 const parseCurrency = (value: string): number => {
@@ -33,8 +33,8 @@ export const buildEsopValueSeries = <T extends EsopRecordLike>(records: T[]): Es
   const yearly = new Map<number, { fairValue: number; marketValue: number }>();
 
   records.forEach(record => {
-    let fairValue = parseCurrencyOrZero(record.fairValue ?? record.aggregateValue ?? "₹0");
-    let marketValue = parseCurrencyOrZero(record.esopValue ?? record.aggregateValue ?? record.fairValue ?? "₹0");
+    let fairValue = parseCurrencyOrZero(record.esopFairValue ?? record.optionsAggregateValue ?? "₹0");
+    let marketValue = parseCurrencyOrZero(record.esopMarketValue ?? record.optionsAggregateValue ?? record.esopFairValue ?? "₹0");
 
     if (fairValue <= 0 && marketValue > 0) {
       fairValue = Math.round(marketValue * 0.85);

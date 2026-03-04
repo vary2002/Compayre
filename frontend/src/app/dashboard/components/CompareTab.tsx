@@ -8,15 +8,16 @@ import { formatCurrencyAxisTick, formatCurrencyCompact, formatCurrencyRaw } from
 import { buildEsopValueSeries } from "@/utils/esop";
 import { computeCfsnGrowth } from "@/utils/growth";
 import { apiClient } from "@/lib/api";
-import { DirectorInfo, companyDataMap } from "../data";
+import { DirectorInfo } from "../data";
+import { useAllDirectorsDropdown, useDirectorHistory } from "@/hooks/useDataApi";
+import type { DirectorHistory } from "@/utils/transformers";
+import { yearToFyLabel } from "@/utils/transformers";
 
 interface CompareTabProps {
   onLayoutModeChange?: (isWide: boolean) => void;
 }
 
-type DirectorIdentity = { name: string; din: string };
-
-type DirectorHistory = { company: string; data: DirectorInfo[] }[];
+type DirectorIdentity = { id: number; name: string; din: string | null; directorCode: string };
 
 type DirectorProfile = {
   identity: DirectorIdentity;
@@ -49,7 +50,7 @@ const buildIndividualRemunerationBreakdown = (profile: DirectorProfile) => {
   const bonus = parseCurrency(latestRecord.bonus ?? "₹0");
   const perquisites = parseCurrency(latestRecord.perquisites ?? "₹0");
   const retirement = parseCurrency(latestRecord.retirementBenefits ?? "₹0");
-  const esop = parseCurrency(latestRecord.esopValue ?? "₹0");
+  const esop = parseCurrency(latestRecord.esopMarketValue ?? "₹0");
 
   const slices = [
     { label: "Salary", value: salary, color: "#4F46E5" },
@@ -93,13 +94,24 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
   // Restore persisted state after mount to ensure UI updates
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const isValidIdentity = (v: any): v is DirectorIdentity =>
+        v && typeof v === "object" && typeof v.id === "number" && typeof v.directorCode === "string";
       const storedCompare = localStorage.getItem("dashboard_compareSelectedDirector");
       if (storedCompare) {
-        setCompareSelectedDirector(JSON.parse(storedCompare));
+        try {
+          const parsed = JSON.parse(storedCompare);
+          if (isValidIdentity(parsed)) setCompareSelectedDirector(parsed);
+          else localStorage.removeItem("dashboard_compareSelectedDirector");
+        } catch { localStorage.removeItem("dashboard_compareSelectedDirector"); }
       }
       const storedComparison = localStorage.getItem("dashboard_comparisonDirectors");
       if (storedComparison) {
-        setComparisonDirectors(JSON.parse(storedComparison));
+        try {
+          const parsed = JSON.parse(storedComparison);
+          if (Array.isArray(parsed) && parsed.every(v => v === null || isValidIdentity(v)))
+            setComparisonDirectors(parsed);
+          else localStorage.removeItem("dashboard_comparisonDirectors");
+        } catch { localStorage.removeItem("dashboard_comparisonDirectors"); }
       }
     }
   }, []);
@@ -119,73 +131,40 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
     }
   }, [comparisonDirectors]);
 
-  const allDirectors = useMemo(() => Object.values(companyDataMap).flat(), []);
+  // Director data from API
+  const { data: allDirectorsList } = useAllDirectorsDropdown();
 
   const directorRegistry = useMemo(() => {
-    const registry = new Map<string, DirectorIdentity & { companies: Set<string> }>();
-    allDirectors.forEach(({ name, din }) => {
-      if (!registry.has(din)) {
-        registry.set(din, { name, din, companies: new Set<string>() });
-      }
-    });
-    
-    // Add company information
-    Object.entries(companyDataMap).forEach(([company, directors]) => {
-      directors.forEach(director => {
-        const existing = registry.get(director.din);
-        if (existing) {
-          existing.companies.add(company);
-        }
+    const registry = new Map<string, DirectorIdentity & { company: string }>();
+    (allDirectorsList ?? []).forEach(dir => {
+      registry.set(dir.director_code, {
+        id: dir.id,
+        name: dir.director_name,
+        din: dir.din ?? null,
+        directorCode: dir.director_code,
+        company: dir.company__company_name,
       });
     });
-    
     return registry;
-  }, [allDirectors]);
+  }, [allDirectorsList]);
 
   const directorOptions = useMemo(
     () =>
       Array.from(directorRegistry.values())
-        .map(entry => {
-          const companies = Array.from(entry.companies).join(", ");
-          return { 
-            id: entry.din, 
-            label: `${entry.name}\nDIN: ${entry.din}\n${companies}`, 
-            value: entry.din 
-          };
-        })
+        .map(entry => ({
+          id: entry.directorCode,
+          label: `${entry.name}\nDIN: ${entry.din ?? 'N/A'}\n${entry.company}`,
+          value: entry.directorCode,
+        }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [directorRegistry],
   );
 
-  const allDirectorData = useMemo<Record<string, DirectorHistory>>(() => {
-    const directorMap = new Map<string, { company: string; data: DirectorInfo[] }[]>();
-
-    Object.entries(companyDataMap).forEach(([company, directors]) => {
-      directors.forEach(director => {
-        const existing = directorMap.get(director.din);
-        if (!existing) {
-          directorMap.set(director.din, [{ company, data: [director] }]);
-          return;
-        }
-
-        const companyEntry = existing.find(entry => entry.company === company);
-        if (companyEntry) {
-          companyEntry.data.push(director);
-        } else {
-          existing.push({ company, data: [director] });
-        }
-      });
-    });
-
-    directorMap.forEach(entries => {
-      entries.forEach(entry => {
-        entry.data.sort((a, b) => b.year - a.year);
-      });
-      entries.sort((a, b) => a.company.localeCompare(b.company));
-    });
-
-    return Object.fromEntries(directorMap) as Record<string, DirectorHistory>;
-  }, []);
+  // History hooks for the 4 possible selected directors (hooks must be unconditional)
+  const history0 = useDirectorHistory(compareSelectedDirector?.id ?? null);
+  const history1 = useDirectorHistory(comparisonDirectors[0]?.id ?? null);
+  const history2 = useDirectorHistory(comparisonDirectors[1]?.id ?? null);
+  const history3 = useDirectorHistory(comparisonDirectors[2]?.id ?? null);
 
   useEffect(() => {
     if (!compareSelectedDirector) {
@@ -199,38 +178,36 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
   }, [isComparisonMode, onLayoutModeChange]);
 
   const resolvedProfiles: (DirectorProfile | null)[] = useMemo(() => {
+    const historyResults = [history0.data, history1.data, history2.data, history3.data];
     const identities = [compareSelectedDirector, ...comparisonDirectors];
-    return identities.map(identity => {
-      if (!identity) {
-        return null;
-      }
-
-      const history = allDirectorData[identity.din] ?? [];
+    return identities.map((identity, i) => {
+      if (!identity) return null;
+      const historyData = historyResults[i];
       return {
         identity,
-        history,
+        history: historyData?.history ?? [],
       } satisfies DirectorProfile;
     });
-  }, [allDirectorData, compareSelectedDirector, comparisonDirectors]);
+  }, [history0.data, history1.data, history2.data, history3.data, compareSelectedDirector, comparisonDirectors]);
 
   const selectedProfile = resolvedProfiles[0];
   const hasComparisonData = resolvedProfiles.some(profile => profile !== null);
 
   const selectableOptionsForIndex = (slot: number) => {
-    const usedDins = new Set(
+    const usedCodes = new Set(
       [compareSelectedDirector, ...comparisonDirectors]
-        .map(identity => identity?.din)
-        .filter((din): din is string => Boolean(din)),
+        .map(identity => identity?.directorCode)
+        .filter((code): code is string => Boolean(code)),
     );
 
-    const currentSelection = comparisonDirectors[slot]?.din;
+    const currentSelection = comparisonDirectors[slot]?.directorCode;
     if (currentSelection) {
-      usedDins.delete(currentSelection);
+      usedCodes.delete(currentSelection);
     }
 
     return directorOptions.filter(option => {
-      const optionValue = option.value ?? option.id;
-      return !usedDins.has(String(optionValue));
+      const optionValue = String(option.value ?? option.id);
+      return !usedCodes.has(optionValue);
     });
   };
 
@@ -239,7 +216,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
       const next = [...prev];
       if (typeof selected === "string" || typeof selected === "number") {
         const identity = directorRegistry.get(String(selected)) ?? null;
-        next[slot] = identity ? { ...identity } : null;
+        next[slot] = identity ? { id: identity.id, name: identity.name, din: identity.din, directorCode: identity.directorCode } : null;
         
         // Track director selection
         if (identity) {
@@ -301,7 +278,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
               {selectedProfile ? (
                 <>
                   <p className="text-sm font-semibold text-indigo-900">{selectedProfile.identity.name}</p>
-                  <p className="text-xs text-indigo-700">DIN: {selectedProfile.identity.din}</p>
+                  <p className="text-xs text-indigo-700">DIN: {selectedProfile.identity.din ?? 'N/A'}</p>
                 </>
               ) : (
                 <p className="text-sm text-indigo-700">Select a base executive director first.</p>
@@ -318,7 +295,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
                   isMultiSelect={false}
                   isSearchable
                   onSelectionChange={value => handleAssignDirector(index, value)}
-                  value={comparisonDirectors[index]?.din ?? null}
+                  value={comparisonDirectors[index]?.directorCode ?? null}
                   showSelectAll={false}
                   showReset={false}
                 />
@@ -354,7 +331,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
                   setCompareSelectedDirector(null);
                 }
               }}
-              value={compareSelectedDirector?.din ?? null}
+              value={compareSelectedDirector?.directorCode ?? null}
               showSelectAll={false}
               showReset={false}
             />
@@ -413,6 +390,8 @@ function ComparisonModeView({ profiles, hasData }: ComparisonModeViewProps) {
 
       <CompensationTrajectory directors={directors} />
 
+      {directors.length > 1 && <ComparisonMetricsTable directors={directors} />}
+
       {!hasData && (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
           Add executive directors to view comparative insights.
@@ -428,6 +407,11 @@ interface SingleDirectorViewProps {
 }
 
 function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
+  // Hooks must be unconditional — compute from optional profile
+  const history = profile?.history ?? [];
+  const flattened = flattenHistory(history);
+  const esopSeries = useMemo(() => buildEsopValueSeries(flattenHistory(history)), [history]);
+
   if (!profile) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
@@ -436,14 +420,15 @@ function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
     );
   }
 
-  const history = profile.history;
-  const flattened = flattenHistory(history);
-  const totalCompanies = history.length;
   const totalYears = flattened.length;
   const compensations = flattened.map(record => parseCurrency(record.compensation));
   const averageComp = compensations.reduce((sum, value) => sum + value, 0) / (compensations.length || 1);
   const peakComp = Math.max(...compensations);
-  const esopSeries = useMemo(() => buildEsopValueSeries(flattenHistory(history)), [history]);
+  const latestRecord = flattened.length > 0 ? [...flattened].sort((a, b) => b.year - a.year)[0] : null;
+  const companyName = history[0]?.company ?? 'N/A';
+  const designation = latestRecord?.designation ?? 'N/A';
+  const sector = latestRecord?.sector ?? null;
+  const latestFY = latestRecord ? yearToFyLabel(latestRecord.year) : null;
 
   return (
     <div className="space-y-6">
@@ -451,7 +436,12 @@ function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{profile.identity.name}</h3>
-            <p className="mt-1 text-sm text-gray-600 font-mono">DIN: {profile.identity.din}</p>
+            <p className="mt-0.5 text-sm font-semibold text-indigo-700">{designation} · {companyName}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-500 font-mono">DIN: {profile.identity.din ?? 'N/A'}</span>
+              {sector && <span className="text-xs text-gray-400">· {sector}</span>}
+              {latestFY && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Latest: {latestFY}</span>}
+            </div>
           </div>
           <button
             onClick={onClear}
@@ -463,8 +453,8 @@ function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatCard label="Companies" value={totalCompanies.toString()} subtitle="Across career" />
-          <StatCard label="Total Years" value={totalYears.toString()} subtitle="Reported" />
+          <StatCard label="Years of Data" value={totalYears.toString()} subtitle={`${history[0]?.data?.[history[0]?.data?.length - 1]?.year ?? '—'} – ${latestRecord?.year ?? '—'}`} />
+          <StatCard label="Latest Pay" value={latestRecord ? formatCurrencyCompact(parseCurrency(latestRecord.compensation)) : '—'} subtitle={latestFY ?? 'N/A'} />
           <StatCard label="Average Pay" value={formatCurrencyCompact(averageComp)} subtitle="Per annum" />
           <StatCard label="Peak Pay" value={formatCurrencyCompact(peakComp)} subtitle="Highest year" />
         </div>
@@ -670,7 +660,7 @@ function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
                 .join(" ");
 
               return (
-                <g key={profile.identity.din}>
+                <g key={profile.identity.directorCode}>
                   <polyline
                     points={points}
                     fill="none"
@@ -682,7 +672,7 @@ function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
                   />
                   {records.map(record => (
                     <circle
-                      key={`${profile.identity.din}-${record.year}`}
+                      key={`${profile.identity.directorCode}-${record.year}`}
                       cx={getXPosition(record.year)}
                       cy={getYPosition(record.numericCompensation)}
                       r={4}
@@ -741,12 +731,158 @@ function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
 
         <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-700">
           {series.map(entry => (
-            <div key={entry.profile.identity.din} className="flex items-center gap-2">
+            <div key={entry.profile.identity.directorCode} className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.color }} />
               <span>{entry.profile.identity.name}</span>
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonMetricsTable({ directors }: { directors: DirectorProfile[] }) {
+  const colors = ["#4F46E5", "#0D9488", "#D97706", "#059669"];
+
+  const rows: { label: string; getValue: (p: DirectorProfile) => string; className?: string }[] = [
+    {
+      label: "Company",
+      getValue: p => p.history[0]?.company ?? "N/A",
+    },
+    {
+      label: "Designation",
+      getValue: p => {
+        const records = flattenHistory(p.history);
+        const latest = records.sort((a, b) => b.year - a.year)[0];
+        return latest?.designation ?? "N/A";
+      },
+    },
+    {
+      label: "Sector",
+      getValue: p => {
+        const records = flattenHistory(p.history);
+        return records[0]?.sector ?? "N/A";
+      },
+    },
+    {
+      label: `Latest Pay (${yearToFyLabel(flattenHistory(directors[0].history).sort((a, b) => b.year - a.year)[0]?.year ?? 2016)})`,
+      getValue: p => {
+        const records = flattenHistory(p.history).sort((a, b) => b.year - a.year);
+        return records[0] ? formatCurrencyCompact(parseCurrency(records[0].compensation)) : "N/A";
+      },
+      className: "font-semibold text-indigo-700",
+    },
+    {
+      label: "Average Pay",
+      getValue: p => {
+        const vals = flattenHistory(p.history).map(r => parseCurrency(r.compensation));
+        return vals.length > 0 ? formatCurrencyCompact(vals.reduce((s, v) => s + v, 0) / vals.length) : "N/A";
+      },
+    },
+    {
+      label: "Peak Pay",
+      getValue: p => {
+        const vals = flattenHistory(p.history).map(r => parseCurrency(r.compensation));
+        return vals.length > 0 ? formatCurrencyCompact(Math.max(...vals)) : "N/A";
+      },
+    },
+    {
+      label: "Avg Basic Salary",
+      getValue: p => {
+        const vals = flattenHistory(p.history).map(r => parseCurrency(r.salary ?? "₹0")).filter(v => v > 0);
+        return vals.length > 0 ? formatCurrencyCompact(vals.reduce((s, v) => s + v, 0) / vals.length) : "N/A";
+      },
+    },
+    {
+      label: "Avg Bonus",
+      getValue: p => {
+        const vals = flattenHistory(p.history).map(r => parseCurrency(r.bonus ?? "₹0")).filter(v => v > 0);
+        return vals.length > 0 ? formatCurrencyCompact(vals.reduce((s, v) => s + v, 0) / vals.length) : "N/A";
+      },
+    },
+    {
+      label: "Variable Ratio",
+      getValue: p => {
+        const records = flattenHistory(p.history);
+        const avgComp = records.map(r => parseCurrency(r.compensation));
+        const avgBonus = records.map(r => parseCurrency(r.bonus ?? "₹0"));
+        const totalComp = avgComp.reduce((s, v) => s + v, 0);
+        const totalBonus = avgBonus.reduce((s, v) => s + v, 0);
+        return totalComp > 0 ? `${((totalBonus / totalComp) * 100).toFixed(1)}%` : "N/A";
+      },
+    },
+    {
+      label: "Career Growth",
+      getValue: p => {
+        const records = flattenHistory(p.history).sort((a, b) => a.year - b.year);
+        if (records.length < 2) return "N/A";
+        const first = parseCurrency(records[0].compensation);
+        const last = parseCurrency(records[records.length - 1].compensation);
+        if (first <= 0) return "N/A";
+        const pct = ((last - first) / first) * 100;
+        return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+      },
+    },
+    {
+      label: "Options Granted",
+      getValue: p => {
+        const total = flattenHistory(p.history).reduce((s, r) => s + (r.optionsGranted ?? 0), 0);
+        return total > 0 ? total.toLocaleString() : "\u2014";
+      },
+    },
+    {
+      label: "ESOP Value",
+      getValue: p => {
+        const total = flattenHistory(p.history).reduce((s, r) => s + (r.esopsExercised ?? 0), 0);
+        return total > 0 ? formatAmountShort(total) : "\u2014";
+      },
+    },
+    {
+      label: "Gender",
+      getValue: p => flattenHistory(p.history).sort((a, b) => b.year - a.year)[0]?.gender ?? "N/A",
+    },
+    {
+      label: "Pay vs Median Employee",
+      getValue: p => {
+        const ratios = flattenHistory(p.history)
+          .filter(r => r.salaryToMedianEmployeeRatio)
+          .map(r => parseFloat(r.salaryToMedianEmployeeRatio!));
+        return ratios.length > 0 ? `${(ratios.reduce((s, v) => s + v, 0) / ratios.length).toFixed(1)}x` : "N/A";
+      },
+    },
+  ];
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-900">Side-by-Side Comparison</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-40">Metric</th>
+              {directors.map((p, i) => (
+                <th key={p.identity.directorCode} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: colors[i % colors.length] }}>
+                  {p.identity.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((row, ri) => (
+              <tr key={row.label} className={ri % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                <td className="px-6 py-3 text-xs font-medium text-gray-500">{row.label}</td>
+                {directors.map((p, i) => (
+                  <td key={p.identity.directorCode} className={`px-4 py-3 text-sm ${row.className ?? "text-gray-900"}`}>
+                    {row.getValue(p)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -781,20 +917,20 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
       ? "text-emerald-600"
       : "text-red-600";
 
-  const totalESOPs = allRecords.reduce((sum, record) => sum + (record.esops || 0), 0);
+  const totalESOPs = allRecords.reduce((sum, record) => sum + (record.esopsExercised || 0), 0);
   const totalOptionsGranted = allRecords.reduce((sum, record) => sum + (record.optionsGranted || 0), 0);
 
   const directorCategory = latestRecord.directorCategory || "N/A";
   const promoterStatus = latestRecord.promoterStatus || "N/A";
   const gender = latestRecord.gender || "N/A";
-  const age = latestRecord.dob
-    ? Math.floor((Date.now() - new Date(latestRecord.dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+  const age = latestRecord.dateOfBirth
+    ? Math.floor((Date.now() - new Date(latestRecord.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
     : null;
   const appointmentDate = latestRecord.appointmentDate || "N/A";
   const sector = latestRecord.sector || "N/A";
   const industry = latestRecord.industry || "N/A";
 
-  const salaryRatios = allRecords.filter(record => record.salaryToMedianRatio).map(record => parseFloat(record.salaryToMedianRatio!));
+  const salaryRatios = allRecords.filter(record => record.salaryToMedianEmployeeRatio).map(record => parseFloat(record.salaryToMedianEmployeeRatio!));
   const avgSalaryRatio = salaryRatios.length > 0
     ? (salaryRatios.reduce((sum, value) => sum + value, 0) / salaryRatios.length).toFixed(1)
     : null;
@@ -827,17 +963,17 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
         <div className="text-xs font-semibold text-gray-700 mb-2">Compensation</div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Latest (FY25)</span>
+            <span className="text-xs text-gray-600">Latest ({yearToFyLabel(latestRecord.year)})</span>
             <span className="text-xs font-semibold text-gray-900">{formatCurrencyCompact(parseCurrency(latestRecord.compensation))}</span>
           </div>
-          {/* <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Average</span>
             <span className="text-xs font-semibold text-gray-900">{formatCurrencyCompact(avgCompensation)}</span>
-          </div> */}
-          {/* <div className="flex items-center justify-between">
+          </div>
+          <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Peak</span>
             <span className="text-xs font-semibold text-indigo-600">{formatCurrencyCompact(peakCompensation)}</span>
-          </div> */}
+          </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Total Remuneration</span>
             <span className="text-xs font-semibold text-teal-600">{formatCurrencyCompact(totalEarnings)}</span>
@@ -874,7 +1010,7 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
               <div className="grid gap-1.5" style={{ gridTemplateRows: "repeat(6, minmax(0, 1fr))" }}>
                 {latestBreakdown.data.map(slice => (
                   <div
-                    key={`${profile.identity.din}-${slice.label}`}
+                    key={`${profile.identity.directorCode}-${slice.label}`}
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2">
@@ -928,18 +1064,21 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
       </div>
 
       <div className="border-t pt-2">
-        <div className="text-xs font-semibold text-gray-700 mb-2">Equity</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold text-gray-700">Equity</div>
+          <div className="text-[10px] text-gray-400">~5% of directors</div>
+        </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Total ESOP Value</span>
             <span className="text-xs font-semibold text-indigo-600">
-              {totalESOPs > 0 ? formatCurrencyCompact(totalESOPs) : "N/A"}
+              {totalESOPs > 0 ? formatCurrencyCompact(totalESOPs) : <span className="text-gray-400 font-normal">&mdash;</span>}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">Options Granted</span>
             <span className="text-xs font-semibold text-gray-900">
-              {totalOptionsGranted > 0 ? totalOptionsGranted.toLocaleString() : "N/A"}
+              {totalOptionsGranted > 0 ? totalOptionsGranted.toLocaleString() : <span className="text-gray-400 font-normal">&mdash;</span>}
             </span>
           </div>
         </div>
@@ -1036,7 +1175,7 @@ function CompanyHistory({ history }: { history: DirectorHistory }) {
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-gray-600">Latest Position (FY25)</div>
+                    <div className="text-xs text-gray-600">Latest Position ({yearToFyLabel(records[0].year)})</div>
                     <div className="text-sm font-semibold text-gray-900">{records[0].designation}</div>
                   </div>
                 </div>
@@ -1045,7 +1184,7 @@ function CompanyHistory({ history }: { history: DirectorHistory }) {
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <div className="text-xs text-gray-600 mb-1">Latest Compensation (FY25)</div>
+                    <div className="text-xs text-gray-600 mb-1">Latest Compensation ({yearToFyLabel(records[0].year)})</div>
                     <div className="text-lg font-bold text-indigo-600">{formatCurrencyCompact(latestComp)}</div>
                     <div className="text-xs text-gray-500">{records[0].year}</div>
                   </div>
@@ -1068,19 +1207,23 @@ function CompanyHistory({ history }: { history: DirectorHistory }) {
                 <table className="w-full">
                   <thead className="bg-indigo-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Year</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Compensation</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Bonus</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">ESOPs</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Year</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total Comp</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Basic Salary</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Bonus</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Perquisites</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">ESOPs</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {records.map(record => (
                       <tr key={`${entry.company}-${record.year}`} className="hover:bg-gray-50">
-                        <td className="px-6 py-3 text-sm text-gray-900">{record.year}</td>
-                        <td className="px-6 py-3 text-sm font-semibold text-indigo-600">{record.compensation}</td>
-                        <td className="px-6 py-3 text-sm text-gray-600">{record.bonus ?? "₹0"}</td>
-                        <td className="px-6 py-3 text-sm text-gray-600">{record.esops ? record.esops.toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{yearToFyLabel(record.year)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-right">{record.compensation}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right">{record.salary ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right">{record.bonus ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right">{record.perquisites ?? "—"}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right">{record.esopsExercised ? formatAmountShort(record.esopsExercised) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>

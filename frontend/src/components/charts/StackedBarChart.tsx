@@ -36,6 +36,16 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
   const [hover, setHover] = useState<{ year: number; idx: number; value: number; x: number; y: number } | null>(null);
   
   if (!data.length) return null;
+
+  // Determine which segment indices have at least one non-zero value across all bars.
+  // This drives both height calculation and legend visibility.
+  const getValues = (d: typeof data[0]) => [
+    d.salary, d.retirement, d.perquisites, d.bonus, d.payExclEsops, d.esops
+  ];
+  const activeIndex = LABELS.map((_, i) => data.some(d => getValues(d)[i] > 0));
+  const activeSegments = LABELS
+    .map((label, i) => ({ label, color: COLORS[i], idx: i, active: activeIndex[i] }))
+    .filter(s => s.active);
   
   const maxTotal = Math.max(
     ...data.map(d => d.salary + d.retirement + d.perquisites + d.bonus + d.payExclEsops + d.esops)
@@ -170,7 +180,7 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
                 );
               })}
               
-              {/* Legend */}
+              {/* Legend — only shows segments present in the data */}
               <g transform={`translate(${leftPad}, ${topPad + chartHeight + 60})`}>
                 <rect
                   x={-10}
@@ -181,28 +191,14 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
                   rx={12}
                   opacity={0.8}
                 />
-                {LABELS.map((label, i) => {
-                  const xPos = (i % 3) * 200;
-                  const yPos = Math.floor(i / 3) * 28 + 5;
-                  
+                {activeSegments.map((seg, pos) => {
+                  const xPos = (pos % 3) * 200;
+                  const yPos = Math.floor(pos / 3) * 28 + 5;
                   return (
-                    <g key={label} transform={`translate(${xPos}, ${yPos})`}>
-                      <rect 
-                        x={0} 
-                        y={0} 
-                        width={18} 
-                        height={18} 
-                        fill={COLORS[i]} 
-                        rx={4}
-                      />
-                      <text 
-                        x={26} 
-                        y={13} 
-                        fontSize={14} 
-                        fill="#334155"
-                        fontWeight={500}
-                      >
-                        {label}
+                    <g key={seg.label} transform={`translate(${xPos}, ${yPos})`}>
+                      <rect x={0} y={0} width={18} height={18} fill={seg.color} rx={4} />
+                      <text x={26} y={13} fontSize={14} fill="#334155" fontWeight={500}>
+                        {seg.label}
                       </text>
                     </g>
                   );

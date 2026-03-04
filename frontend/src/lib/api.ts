@@ -379,92 +379,118 @@ export const apiClient = new ApiClient();
 // --- Data Models ---
 
 export interface Company {
-  company_id: string;
-  name: string;
+  id: number;
+  company_code: string;
+  company_name: string;
+  bse_scrip_code: string | null;
   sector: string | null;
   industry: string | null;
-  index: string | null;
-  employees: number | null;
+  index_name: string | null;
+  no_of_employees: number | null;
+  salary_to_median_employee_pay: string | null;
+  peer_1_comp: string | null;
+  peer_2_comp: string | null;
+  peer_3_comp: string | null;
+  peer_4_comp: string | null;
+  peer_5_comp: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CompanyDropdown {
-  company_id: string;
-  name: string;
+  id: number;
+  company_code: string;
+  company_name: string;
 }
 
 export interface Director {
-  director_id: string;
-  name: string;
-  company: string;
+  id: number;
+  director_code: string;
+  company: number;
   company_name: string;
+  director_name: string;
+  din: string | null;
   designation: string | null;
-  category: string | null;
+  director_category: string | null;
   qualification: string | null;
   dob: string | null;
   promoter_status: string | null;
-  gender: string | null;
+  role: string | null;
   appointment_date: string | null;
+  gender: string | null;
+  key_flag: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface DirectorDropdown {
-  director_id: string;
+  id: number;
+  director_code: string;
+  director_name: string;
+  din: string | null;
+  company__company_name: string;
+}
+
+export interface PeerCompensationBar {
   name: string;
-  company__name: string;
+  avg_compensation: number;
+  is_subject: boolean;
+}
+
+export interface PeerCompensationResponse {
+  financial_year: string;
+  bars: PeerCompensationBar[];
 }
 
 export interface DirectorRemuneration {
   id: number;
-  company: string;
-  company_name: string;
-  director: string;
+  director: number;
   director_name: string;
-  fy_end_date: string;
-  fy_label: string;
-  basic_salary: number | null;
-  pf: number | null;
-  perqs: number | null;
-  bonus: number | null;
-  pay_excl_esops: number | null;
-  esops: number | null;
-  total_remuneration: number | null;
-  options_granted: number | null;
-  discount: number | null;
-  fair_value: number | null;
-  aggregate_value: number | null;
-  remuneration_status: string | null;
+  company_name: string;
+  // Director identity fields embedded
+  din: string | null;
+  director_code: string;
+  designation: string | null;
+  director_category: string | null;
+  qualification: string | null;
+  dob: string | null;
+  promoter_status: string | null;
+  gender: string | null;
+  appointment_date: string | null;
+  director_role: string | null;
+  key_flag: boolean;
+  // Company context embedded
+  sector: string | null;
+  industry: string | null;
+  // Remuneration
+  financial_year: string;
+  basic_salary: string | null;
+  pf_retirement: string | null;
+  perquisites_allowances: string | null;
+  bonus_commission: string | null;
+  pay_excl_esops: string | null;
+  esops: string | null;
+  total_remuneration: string | null;
+  options_granted: string | null;
+  discount: string | null;
+  fair_value: string | null;
+  aggregate_value: string | null;
   comments: string | null;
+  remuneration_status: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface CompanyFinancialTimeSeries {
+export interface CompanyFinancials {
   id: number;
-  company: string;
+  company: number;
   company_name: string;
-  fy_end_date: string;
-  fy_label: string;
-  total_income: number | null;
-  pat: number | null;
-  roa: number | null;
-  employee_cost: number | null;
-  mcap: number | null;
-  employees: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PeerComparison {
-  id: number;
-  company: string;
-  company_name: string;
-  peer_company: string;
-  peer_company_name: string;
-  peer_position: number;
-  salary_to_median_emp_pay: number | null;
+  financial_year: string;
+  total_income: string | null;
+  pat: string | null;
+  roa: string | null;
+  employee_cost: string | null;
+  mcap: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -514,7 +540,7 @@ class DataApiClient {
     return response.json();
   }
 
-  async getCompanyDetails(companyId: string): Promise<Company> {
+  async getCompanyDetails(companyId: string | number): Promise<Company> {
     const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/companies/${companyId}/`);
 
     if (!response.ok) {
@@ -549,14 +575,14 @@ class DataApiClient {
   async getDirectors(
     page: number = 1,
     pageSize: number = 50,
-    companyId?: string,
+    companyId?: string | number,
     category?: string,
     search?: string
   ): Promise<{ results: Director[]; count: number; next: string | null; previous: string | null }> {
     let url = `${this.baseUrl}/directors/?page=${page}&page_size=${pageSize}`;
     
-    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
-    if (category) url += `&category=${encodeURIComponent(category)}`;
+    if (companyId) url += `&company=${encodeURIComponent(String(companyId))}`;
+    if (category) url += `&director_category=${encodeURIComponent(category)}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
     const response = await this.apiClient.fetchWithAuth(url);
@@ -568,9 +594,9 @@ class DataApiClient {
     return response.json();
   }
 
-  async getDirectorDropdown(companyId?: string): Promise<DirectorDropdown[]> {
+  async getDirectorDropdown(companyId?: string | number): Promise<DirectorDropdown[]> {
     let url = `${this.baseUrl}/directors/dropdown/`;
-    if (companyId) url += `?company_id=${encodeURIComponent(companyId)}`;
+    if (companyId) url += `?company_id=${encodeURIComponent(String(companyId))}`;
 
     const response = await this.apiClient.fetchWithAuth(url);
 
@@ -581,9 +607,9 @@ class DataApiClient {
     return response.json();
   }
 
-  async getDirectorsByCompany(companyId: string): Promise<{ company: { id: string; name: string }; directors: Director[] }> {
+  async getDirectorsByCompany(companyCode: string): Promise<{ company: { id: number; company_code: string; name: string }; directors: Director[] }> {
     const response = await this.apiClient.fetchWithAuth(
-      `${this.baseUrl}/directors/by_company/?company_id=${encodeURIComponent(companyId)}`
+      `${this.baseUrl}/directors/by_company/?company_id=${encodeURIComponent(companyCode)}`
     );
 
     if (!response.ok) {
@@ -593,7 +619,7 @@ class DataApiClient {
     return response.json();
   }
 
-  async getDirectorDetails(directorId: string): Promise<Director> {
+  async getDirectorDetails(directorId: string | number): Promise<Director> {
     const response = await this.apiClient.fetchWithAuth(`${this.baseUrl}/directors/${directorId}/`);
 
     if (!response.ok) {
@@ -605,31 +631,9 @@ class DataApiClient {
 
   // --- Director Remuneration ---
 
-  async getDirectorRemuneration(
-    page: number = 1,
-    pageSize: number = 50,
-    directorId?: string,
-    companyId?: string,
-    fyLabel?: string
-  ): Promise<{ results: DirectorRemuneration[]; count: number; next: string | null; previous: string | null }> {
-    let url = `${this.baseUrl}/director-remuneration/?page=${page}&page_size=${pageSize}`;
-    
-    if (directorId) url += `&director=${encodeURIComponent(directorId)}`;
-    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
-    if (fyLabel) url += `&fy_label=${encodeURIComponent(fyLabel)}`;
-
-    const response = await this.apiClient.fetchWithAuth(url);
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch director remuneration: ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
-  async getDirectorRemunerationTimeSeries(directorId: string, companyId?: string): Promise<{ director_id: string; remuneration_data: any[] }> {
-    let url = `${this.baseUrl}/director-remuneration/by_director/?director_id=${encodeURIComponent(directorId)}`;
-    if (companyId) url += `&company_id=${encodeURIComponent(companyId)}`;
+  async getDirectorRemunerationTimeSeries(directorId: string | number, companyId?: string | number): Promise<{ director_id: string | number; remuneration_data: DirectorRemuneration[] }> {
+    let url = `${this.baseUrl}/director-remuneration/by_director/?director_id=${encodeURIComponent(String(directorId))}`;
+    if (companyId) url += `&company_id=${encodeURIComponent(String(companyId))}`;
 
     const response = await this.apiClient.fetchWithAuth(url);
 
@@ -640,9 +644,9 @@ class DataApiClient {
     return response.json();
   }
 
-  async getCompanyRemunerationData(companyId: string): Promise<{ company: { id: string; name: string }; remuneration_data: DirectorRemuneration[] }> {
+  async getCompanyRemunerationData(companyCode: string): Promise<{ company: { id: number; company_code: string; name: string }; remuneration_data: DirectorRemuneration[] }> {
     const response = await this.apiClient.fetchWithAuth(
-      `${this.baseUrl}/director-remuneration/by_company/?company_id=${encodeURIComponent(companyId)}`
+      `${this.baseUrl}/director-remuneration/by_company/?company_id=${encodeURIComponent(companyCode)}`
     );
 
     if (!response.ok) {
@@ -652,31 +656,31 @@ class DataApiClient {
     return response.json();
   }
 
-  // --- Financial Time Series ---
+  // --- Company Financials ---
 
-  async getFinancialTimeSeries(
+  async getCompanyFinancials(
     page: number = 1,
     pageSize: number = 50,
-    companyId?: string,
-    fyLabel?: string
-  ): Promise<{ results: CompanyFinancialTimeSeries[]; count: number; next: string | null; previous: string | null }> {
-    let url = `${this.baseUrl}/financial-timeseries/?page=${page}&page_size=${pageSize}`;
+    companyId?: string | number,
+    financialYear?: string
+  ): Promise<{ results: CompanyFinancials[]; count: number; next: string | null; previous: string | null }> {
+    let url = `${this.baseUrl}/company-financials/?page=${page}&page_size=${pageSize}`;
     
-    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
-    if (fyLabel) url += `&fy_label=${encodeURIComponent(fyLabel)}`;
+    if (companyId) url += `&company=${encodeURIComponent(String(companyId))}`;
+    if (financialYear) url += `&financial_year=${encodeURIComponent(financialYear)}`;
 
     const response = await this.apiClient.fetchWithAuth(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch financial time series: ${response.statusText}`);
+      throw new Error(`Failed to fetch company financials: ${response.statusText}`);
     }
 
     return response.json();
   }
 
-  async getCompanyFinancialData(companyId: string): Promise<{ company: { id: string; name: string }; financial_data: any[] }> {
+  async getCompanyFinancialData(companyCode: string): Promise<{ company: { id: number; company_code: string; name: string }; financial_data: CompanyFinancials[] }> {
     const response = await this.apiClient.fetchWithAuth(
-      `${this.baseUrl}/financial-timeseries/by_company/?company_id=${encodeURIComponent(companyId)}`
+      `${this.baseUrl}/company-financials/by_company/?company_id=${encodeURIComponent(companyCode)}`
     );
 
     if (!response.ok) {
@@ -686,8 +690,8 @@ class DataApiClient {
     return response.json();
   }
 
-  async compareCompaniesFinancial(companyIds: string[], metric: string = 'total_income'): Promise<{ metric: string; comparison_data: Record<string, any[]> }> {
-    const url = `${this.baseUrl}/financial-timeseries/comparison/?${companyIds.map(id => `company_ids=${encodeURIComponent(id)}`).join('&')}&metric=${encodeURIComponent(metric)}`;
+  async compareCompaniesFinancial(companyIds: (string | number)[], metric: string = 'total_income'): Promise<{ metric: string; comparison_data: Record<string, any[]> }> {
+    const url = `${this.baseUrl}/company-financials/comparison/?${companyIds.map(id => `company_ids=${encodeURIComponent(String(id))}`).join('&')}&metric=${encodeURIComponent(metric)}`;
 
     const response = await this.apiClient.fetchWithAuth(url);
 
@@ -697,41 +701,15 @@ class DataApiClient {
 
     return response.json();
   }
-
-  // --- Peer Comparisons ---
-
-  async getPeerComparisons(
-    page: number = 1,
-    pageSize: number = 50,
-    companyId?: string,
-    peerPosition?: number
-  ): Promise<{ results: PeerComparison[]; count: number; next: string | null; previous: string | null }> {
-    let url = `${this.baseUrl}/peer-comparisons/?page=${page}&page_size=${pageSize}`;
-    
-    if (companyId) url += `&company=${encodeURIComponent(companyId)}`;
-    if (peerPosition) url += `&peer_position=${peerPosition}`;
-
-    const response = await this.apiClient.fetchWithAuth(url);
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch peer comparisons: ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
-  async getCompanyPeerComparisons(companyId: string): Promise<{ company: { id: string; name: string }; peers: PeerComparison[] }> {
+  async getPeerCompensation(companyCode: string): Promise<PeerCompensationResponse> {
     const response = await this.apiClient.fetchWithAuth(
-      `${this.baseUrl}/peer-comparisons/by_company/?company_id=${encodeURIComponent(companyId)}`
+      `${this.baseUrl}/companies/peer_compensation/?company_code=${encodeURIComponent(companyCode)}`
     );
-
     if (!response.ok) {
-      throw new Error(`Failed to fetch company peer comparisons: ${response.statusText}`);
+      throw new Error(`Failed to fetch peer compensation: ${response.statusText}`);
     }
-
     return response.json();
   }
 }
 
 export const dataApi = new DataApiClient();
-

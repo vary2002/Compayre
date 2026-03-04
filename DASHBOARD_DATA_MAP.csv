@@ -1,0 +1,144 @@
+﻿Page,Component,Data Field,Type,Source Column(s),Formula
+/dashboard/companies,Company Selector,Option label,Source,"[Company Name], [NSE Symbol]",
+/dashboard/companies,CompanyInfoCard,Company name,Source,[Company Name],
+/dashboard/companies,CompanyInfoCard,ISIN,Source,[ISIN],
+/dashboard/companies,CompanyInfoCard,NSE Symbol,Source,[NSE Symbol],
+/dashboard/companies,CompanyInfoCard,BSE Code,Source,[BSE Scrip Code],
+/dashboard/companies,CompanyInfoCard,Sector,Source,[Sector],
+/dashboard/companies,CompanyInfoCard,Market Cap,Source,[MCAP],(string parse for display normalisation)
+/dashboard/companies,CompanyInfoCard,Fiscal Year label,Calculated,[Year N],"""FY"" + last 2 digits of max([Year N])"
+/dashboard/companies,CompanyInfoCard,Pie slice label,Source,[Director Name],
+/dashboard/companies,CompanyInfoCard,Pie slice %,Calculated,[Year N Total Remuneration],[Year N Total Remuneration] / sum([Year N Total Remuneration] across all directors) × 100
+/dashboard/companies,CompanyInfoCard,Pie slice amount,Source,[Year N Total Remuneration],latest [Year N] row per director
+/dashboard/companies,CompanyInfoCard,Pie total label,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) across all directors (latest year)
+/dashboard/companies,DirectorTable,Director name,Source,[Director Name],
+/dashboard/companies,DirectorTable,DIN,Source,[DIN],
+/dashboard/companies,DirectorTable,Designation,Source,[Designation],
+/dashboard/companies,DirectorTable,Compensation,Source,[Year N Total Remuneration],latest [Year N] row per director (dedup by DIN)
+/dashboard/companies,DirectorDetailsSection — Header,Director name,Source,[Director Name],
+/dashboard/companies,DirectorDetailsSection — Header,DIN,Source,[DIN],
+/dashboard/companies,DirectorDetailsSection — Header,Designation,Source,[Designation],
+/dashboard/companies,DirectorDetailsSection — Header,Company name,Source,[Company Name],
+/dashboard/companies,CompensationSummaryCards (B-1),Latest amount,Source,[Year N Total Remuneration],row where [Year N] = max([Year N])
+/dashboard/companies,CompensationSummaryCards (B-1),Latest year label,Source,[Year N],
+/dashboard/companies,CompensationSummaryCards (B-1),CAGR %,Calculated,[Year N Total Remuneration],(last / first)^(1 / (n − 1)) − 1
+/dashboard/companies,CompensationSummaryCards (B-1),Years count,Calculated,[Year N],count([Year N] rows)
+/dashboard/companies,CompensationSummaryCards (B-1),Growth %,Calculated,[Year N Total Remuneration],(last − first) / |first| × 100
+/dashboard/companies,MetricCards (B-2),YoY Growth,Calculated,[Year N Total Remuneration],([Year N Total Remuneration][latest] − [Year N Total Remuneration][prev]) / [Year N Total Remuneration][prev] × 100
+/dashboard/companies,MetricCards (B-2),Variable Pay %,Calculated,"[Year N Basic Salary], [Year N Bonus / Commission], [Year N Perquisites/Allowances], [Year N PF/Retirement]",[Year N Bonus / Commission] / ([Year N Basic Salary] + [Year N Bonus / Commission] + [Year N Perquisites/Allowances] + [Year N PF/Retirement]) × 100
+/dashboard/companies,MetricCards (B-2),Tenure,Calculated,[Year N],count([Year N] rows)
+/dashboard/companies,ESOP Market Value Table (B-3),Header total badge,Calculated,"[Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",sum([Year N Total Remuneration] − [Year N Pay (Excl ESOPs)])
+/dashboard/companies,ESOP Market Value Table (B-3),Row — Year,Source,[Year N],
+/dashboard/companies,ESOP Market Value Table (B-3),Row — Market Value,Calculated,"[Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",[Year N Total Remuneration] − [Year N Pay (Excl ESOPs)]
+/dashboard/companies,ESOP Market Value Table (B-3),Row — Options,Source,[Year N ESOPs],
+/dashboard/companies,ESOP Market Value Table (B-3),Footer badge ⚠ mislabelled,Calculated,[Year N ESOPs],sum([Year N ESOPs])
+/dashboard/companies,Compensation Components Pie (B-4),Salary slice,Source,[Year N Basic Salary],
+/dashboard/companies,Compensation Components Pie (B-4),Bonus slice,Source,[Year N Bonus / Commission],
+/dashboard/companies,Compensation Components Pie (B-4),Perquisites slice,Source,[Year N Perquisites/Allowances],
+/dashboard/companies,Compensation Components Pie (B-4),Retirement slice,Source,[Year N PF/Retirement],
+/dashboard/companies,Compensation Components Pie (B-4),Slice %,Calculated,"[Year N Basic Salary], [Year N Bonus / Commission], [Year N Perquisites/Allowances], [Year N PF/Retirement]",component / ([Year N Basic Salary] + [Year N Bonus / Commission] + [Year N Perquisites/Allowances] + [Year N PF/Retirement]) × 100
+/dashboard/companies,Compensation Components Pie (B-4),Total label,Calculated,"[Year N Basic Salary], [Year N Bonus / Commission], [Year N Perquisites/Allowances], [Year N PF/Retirement]",[Year N Basic Salary] + [Year N Bonus / Commission] + [Year N Perquisites/Allowances] + [Year N PF/Retirement]
+/dashboard/companies,StackedBarChart (B-5),Basic Salary segment,Source,[Year N Basic Salary],
+/dashboard/companies,StackedBarChart (B-5),PF/Retirement segment,Source,[Year N PF/Retirement],
+/dashboard/companies,StackedBarChart (B-5),Perquisites segment,Source,[Year N Perquisites/Allowances],
+/dashboard/companies,StackedBarChart (B-5),Bonus segment,Source,[Year N Bonus / Commission],
+/dashboard/companies,StackedBarChart (B-5),Pay excl. ESOPs segment,Source,[Year N Pay (Excl ESOPs)],
+/dashboard/companies,StackedBarChart (B-5),ESOPs visual segment,Source,[Year N ESOPs],
+/dashboard/companies,StackedBarChart (B-5),X-axis label,Source,[Year N],
+/dashboard/companies,OtherCompaniesSection (B-6),Year column,Source,[Year N],
+/dashboard/companies,OtherCompaniesSection (B-6),Compensation column,Source,[Year N Total Remuneration],
+/dashboard/companies,OtherCompaniesSection (B-6),Latest amount,Source,[Year N Total Remuneration],row where [Year N] = max([Year N])
+/dashboard/companies,OtherCompaniesSection (B-6),Latest year,Source,[Year N],
+/dashboard/companies,OtherCompaniesSection (B-6),CAGR %,Calculated,[Year N Total Remuneration],(last / first)^(1 / (n − 1)) − 1
+/dashboard/companies,OtherCompaniesSection (B-6),Growth %,Calculated,[Year N Total Remuneration],(last − first) / |first| × 100
+/dashboard/companies,OtherCompaniesSection (B-6),Years count,Calculated,[Year N],count([Year N] rows)
+/dashboard/companies,VisualizationsSection — Remuneration Trend Bar (C-1),Y-axis value,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) / count(directors) grouped by [Year N]
+/dashboard/companies,VisualizationsSection — Remuneration Trend Bar (C-1),X-axis label,Source,[Year N],
+/dashboard/companies,VisualizationsSection — Remuneration Trend Bar (C-1),Tooltip value,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) / count(directors) grouped by [Year N]
+/dashboard/companies,VisualizationsSection — Remuneration Trend Bar (C-1),Tooltip year,Source,[Year N],
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),Basic Salary slice,Calculated,[Year N Basic Salary],sum([Year N Basic Salary]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),Bonus slice,Calculated,[Year N Bonus / Commission],sum([Year N Bonus / Commission]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),Perquisites slice,Calculated,[Year N Perquisites/Allowances],sum([Year N Perquisites/Allowances]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),ESOPs slice,Calculated,"[Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",sum([Year N Total Remuneration] − [Year N Pay (Excl ESOPs)]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),PF/Retirement slice,Calculated,[Year N PF/Retirement],sum([Year N PF/Retirement]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),Slice %,Calculated,"[Year N Basic Salary], [Year N Bonus / Commission], [Year N Perquisites/Allowances], [Year N PF/Retirement], [Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",component avg / sum(all component avgs) × 100
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),Total label,Calculated,"[Year N Basic Salary], [Year N Bonus / Commission], [Year N Perquisites/Allowances], [Year N PF/Retirement], [Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",sum(all component avgs)
+/dashboard/companies,VisualizationsSection — Components Pie (C-2),Chart title year,Source,[Year N],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Total Income series,Source,[Year N Total Income],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),PAT series,Source,[Year N PAT],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),ROA series,Source,[Year N ROA],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Employee Cost series,Source,[Year N Employee Cost],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Latest value label,Source,(series column),row where [Year N] = max([Year N])
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Latest year sub-label,Source,[Year N],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),CAGR badge,Calculated,(series column),(last / first)^(1 / (n − 1)) − 1
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),5y change badge (ROA),Calculated,[Year N ROA],[Year N ROA][latest] − [Year N ROA][earliest]
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),YoY badge,Calculated,(series column),(last − prev) / |prev| × 100
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),High watermark badge,Calculated,(series column),max(series values across all [Year N])
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Bar list year label,Source,[Year N],
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Bar list value,Source,(series column),source column value for that [Year N]
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Bar list YoY label,Calculated,(series column),(value[n] − value[n−1]) / |value[n−1]| × 100
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Cost Intensity %,Calculated,"[Year N Employee Cost], [Year N Total Income]",[Year N Employee Cost] / [Year N Total Income] × 100
+/dashboard/companies,VisualizationsSection — Sparkline Cards (C-3),Cost Intensity YoY,Calculated,"[Year N Employee Cost], [Year N Total Income]",([Year N Employee Cost][latest] / [Year N Total Income][latest]) − ([Year N Employee Cost][prev] / [Year N Total Income][prev])
+/dashboard/companies,VisualizationsSection — Snapshot Cards (C-4),Avg Remuneration value,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Snapshot Cards (C-4),Avg Remuneration YoY,Calculated,[Year N Total Remuneration],(avg[latest Year N] − avg[prev Year N]) / avg[prev Year N] × 100
+/dashboard/companies,VisualizationsSection — Snapshot Cards (C-4),Salary to Median Pay,Source,[Key — Salary to med emp pay],
+/dashboard/companies,VisualizationsSection — Snapshot Cards (C-4),Market Cap,Source,[MCAP],(string parse for display normalisation)
+/dashboard/companies,VisualizationsSection — Snapshot Cards (C-4),Total Employees,Source,[No of employees],
+/dashboard/companies,VisualizationsSection — Peer Comparison Table (C-5),Company avg,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) / count(directors) in latest [Year N]
+/dashboard/companies,VisualizationsSection — Peer Comparison Table (C-5),Peer 1 avg,Source,[Peer 1 Comp],
+/dashboard/companies,VisualizationsSection — Peer Comparison Table (C-5),Peer 2 avg,Source,[Peer 2 Comp],
+/dashboard/companies,VisualizationsSection — Peer Comparison Table (C-5),Peer 3 avg,Source,[Peer 3 Comp],
+/dashboard/companies,VisualizationsSection — Peer Comparison Table (C-5),Peers 4 & 5 (not displayed),Source,"[Peer 4 Comp], [Peer 5 Comp]",
+/dashboard/directors,Single Director View — Header (D-1),Director name,Source,[Director Name],
+/dashboard/directors,Single Director View — Header (D-1),DIN,Source,[DIN],
+/dashboard/directors,Career Stat Cards (D-2),Companies count,Calculated,[Company Name],count(distinct [Company Name])
+/dashboard/directors,Career Stat Cards (D-2),Total Years,Calculated,[Year N],count([Year N] rows across all companies)
+/dashboard/directors,Career Stat Cards (D-2),Average Pay,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) / count([Year N] rows)
+/dashboard/directors,Career Stat Cards (D-2),Peak Pay,Calculated,[Year N Total Remuneration],max([Year N Total Remuneration])
+/dashboard/directors,EsopValueChart (D-3),Fair Value series,Source,"[Year N Fair Value], [Year N Aggregate Value]",
+/dashboard/directors,EsopValueChart (D-3),Market Value series,Calculated,"[Year N Total Remuneration], [Year N Pay (Excl ESOPs)], [Year N Aggregate Value], [Year N Fair Value]",[Year N Total Remuneration] − [Year N Pay (Excl ESOPs)]
+/dashboard/directors,EsopValueChart (D-3),X-axis,Source,[Year N],
+/dashboard/directors,EsopValueChart (D-3),Y-axis,Calculated,"[Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",sum(series values) per [Year N] bucket
+/dashboard/directors,CompanyHistory (D-4),Company name,Source,[Company Name],
+/dashboard/directors,CompanyHistory (D-4),Date range,Source,[Year N],
+/dashboard/directors,CompanyHistory (D-4),Years count,Calculated,[Year N],count([Year N] rows)
+/dashboard/directors,CompanyHistory (D-4),Latest designation,Source,[Designation],
+/dashboard/directors,CompanyHistory (D-4),Latest Compensation,Source,[Year N Total Remuneration],row where [Year N] = max([Year N])
+/dashboard/directors,CompanyHistory (D-4),Latest year label,Source,[Year N],
+/dashboard/directors,CompanyHistory (D-4),Average compensation,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration]) / count([Year N] rows)
+/dashboard/directors,CompanyHistory (D-4),Growth %,Calculated,[Year N Total Remuneration],(last − first) / |first| × 100
+/dashboard/directors,CompanyHistory (D-4),Table — Year,Source,[Year N],
+/dashboard/directors,CompanyHistory (D-4),Table — Compensation,Source,[Year N Total Remuneration],
+/dashboard/directors,CompanyHistory (D-4),Table — Bonus,Source,[Year N Bonus / Commission],
+/dashboard/directors,CompanyHistory (D-4),Table — ESOPs,Source,[Year N ESOPs],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Current Role,Source,[Designation],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Companies count,Calculated,[Company Name],count(distinct [Company Name])
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Total Years,Calculated,[Year N],count([Year N] rows)
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Latest compensation,Source,[Year N Total Remuneration],row where [Year N] = max([Year N])
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Total Remuneration,Calculated,[Year N Total Remuneration],sum([Year N Total Remuneration])
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Career Growth %,Calculated,[Year N Total Remuneration],(last − first) / |first| × 100
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Variable Ratio %,Calculated,"[Year N Bonus / Commission], [Year N Basic Salary], [Year N Perquisites/Allowances], [Year N PF/Retirement]",avg([Year N Bonus / Commission]) / avg([Year N Basic Salary] + [Year N Bonus / Commission] + [Year N Perquisites/Allowances] + [Year N PF/Retirement]) × 100
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — Salary slice,Source,[Year N Basic Salary],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — Bonus slice,Source,[Year N Bonus / Commission],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — Perquisites slice,Source,[Year N Perquisites/Allowances],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — PF/Retirement slice,Source,[Year N PF/Retirement],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — ESOP Value slice,Calculated,"[Year N Total Remuneration], [Year N Pay (Excl ESOPs)]",[Year N Total Remuneration] − [Year N Pay (Excl ESOPs)]
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — Other slice,Calculated,[Year N Total Remuneration],"max([Year N Total Remuneration] − sum(all other slices), 0)"
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pie — slice %,Calculated,[Year N Total Remuneration],slice value / [Year N Total Remuneration] × 100
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Category,Source,[Director Category],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Status,Source,[Promoter/Non-promoter],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Gender,Source,[Gender],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Age,Calculated,[DOB],(today − [DOB]) / 365.25
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Appointed,Source,[Appointment Date],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Total ESOP Value ⚠ unit bug,Calculated,[Year N ESOPs],sum([Year N ESOPs])
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Options Granted,Calculated,[Year N Options Granted],sum([Year N Options Granted])
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Sector,Source,[Sector],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Industry,Source,[Industry],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Pay vs Median,Calculated,[Key — Salary to med emp pay],avg([Key — Salary to med emp pay]) across all [Year N] records
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Company name (list),Source,[Company Name],
+/dashboard/directors,ProfileSummary Cards — Comparison Mode (E-1),Company years (list),Calculated,[Year N],count([Year N] rows) per company
+/dashboard/directors,CompensationTrajectory Chart — Comparison Mode (E-2),Y-axis ticks,Calculated,[Year N Total Remuneration],evenly spaced ticks from 0 to max([Year N Total Remuneration]) across all directors
+/dashboard/directors,CompensationTrajectory Chart — Comparison Mode (E-2),X-axis labels,Source,[Year N],
+/dashboard/directors,CompensationTrajectory Chart — Comparison Mode (E-2),Line series dots,Source,"[Director Name], [Year N]",
+/dashboard/directors,CompensationTrajectory Chart — Comparison Mode (E-2),Dot tooltip,Source,"[Director Name], [Year N Total Remuneration], [Year N]",
+/dashboard/directors,CompensationTrajectory Chart — Comparison Mode (E-2),Legend entry,Source,[Director Name],

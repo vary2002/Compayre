@@ -13,10 +13,9 @@ interface DirectorInfo {
   salary?: string;
   bonus?: string;
   perquisites?: string;
-  esops?: number;
-  esopValue?: string;
+  esopsExercised?: number;
+  esopMarketValue?: string;
   retirementBenefits?: string;
-  // attendance removed
 }
 
 interface FilterDropdownProps {

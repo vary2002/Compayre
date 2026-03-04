@@ -5,11 +5,13 @@ import PieChart from "../charts/PieChart";
 
 interface CompanyInfo {
   name: string;
-  isin: string;
-  nse: string;
+  isin?: string;
+  nse?: string;
   bse: string;
   sector: string;
-  mcap: string;
+  marketCap: string;
+  stockIndex?: string;
+  numberOfEmployees?: string;
 }
 
 interface CompanyInfoCardProps {
@@ -31,7 +33,7 @@ export default function CompanyInfoCard({
   totalRemuneration,
 }: CompanyInfoCardProps) {
   const normalisedMarketCap = (() => {
-    const raw = companyInfo.mcap;
+    const raw = companyInfo.marketCap;
     const cleaned = raw.replace(/[^0-9.]/g, "");
     const numeric = parseFloat(cleaned);
 
@@ -65,14 +67,6 @@ export default function CompanyInfoCard({
         <div className="lg:w-80">
           <h3 className="text-xl font-medium text-gray-600 mb-4">{companyInfo.name}</h3>
           <div className="space-y-3">
-            <div>
-              <div className="text-xs text-gray-500 mb-1">ISIN</div>
-              <div className="text-sm font-medium text-gray-900">{companyInfo.isin}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500 mb-1">NSE Symbol</div>
-              <div className="text-sm font-medium text-gray-900">{companyInfo.nse}</div>
-            </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">BSE Code</div>
               <div className="text-sm font-medium text-gray-900">{companyInfo.bse}</div>

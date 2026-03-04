@@ -16,7 +16,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db import OperationalError
+from django.db.models import Q, Avg
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
@@ -24,15 +25,19 @@ from .serializers import (
     CustomUserSerializer, UserRegistrationSerializer,
     CustomTokenObtainPairSerializer, UserActivityLogSerializer,
     CompanySerializer, DirectorSerializer, DirectorRemunerationSerializer,
-    CompanyFinancialTimeSeriesSerializer, PeerComparisonSerializer
+    CompanyFinancialsSerializer
 )
 from .permissions import IsAdmin, IsSubscriberOrAdmin
 from .models import (
     CustomUser, UserActivityLog, Company, Director, DirectorRemuneration,
-    CompanyFinancialTimeSeries, PeerComparison
+    CompanyFinancials, DR_YEAR_MODELS, CF_YEAR_MODELS
 )
 
 User = get_user_model()
+
+# Number of financial years to return for chart/display endpoints.
+# Changing this single value updates all by_company and by_director queries.
+CHART_YEARS = 5
 
 
 def get_client_ip(request):
@@ -234,13 +239,17 @@ class UserActivityLogViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        UserActivityLog.objects.create(
-            user=request.user,
-            activity_type=activity_type,
-            description=description,
-            ip_address=get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
+        try:
+            UserActivityLog.objects.create(
+                user=request.user,
+                activity_type=activity_type,
+                description=description,
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+        except OperationalError:
+            # SQLite lock contention — log is non-critical, don't surface as 500
+            pass
         
         return Response({'detail': 'Activity logged'}, status=status.HTTP_201_CREATED)
 
@@ -263,16 +272,16 @@ class CompanyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CompanySerializer
     permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['sector', 'industry', 'index']
-    search_fields = ['name', 'company_id']
-    ordering_fields = ['name', 'employees']
-    ordering = ['name']
+    filterset_fields = ['sector', 'industry', 'index_name']
+    search_fields = ['company_name', 'company_code']
+    ordering_fields = ['company_name', 'no_of_employees']
+    ordering = ['company_name']
     pagination_class = None  # Will use DEFAULT from settings
 
     @action(detail=False, methods=['get'])
     def dropdown(self, request):
         """Get companies as dropdown list (id, name only)."""
-        companies = Company.objects.values('company_id', 'name').order_by('name')
+        companies = Company.objects.values('id', 'company_code', 'company_name').order_by('company_name')
         return Response(companies)
 
     @action(detail=False, methods=['get'])
@@ -290,6 +299,58 @@ class CompanyViewSet(viewsets.ReadOnlyModelViewSet):
             industry__isnull=False
         ).values_list('industry', flat=True).distinct().order_by('industry')
         return Response({'industries': list(industries)})
+
+    @action(detail=False, methods=['get'])
+    def peer_compensation(self, request):
+        """
+        Return avg director total_remuneration for a company and its peers
+        in the latest available financial year.
+
+        Query param: company_code
+        Response: { financial_year, bars: [{ name, avg_compensation, is_subject }] }
+        """
+        company_code = request.query_params.get('company_code')
+        if not company_code:
+            return Response({'error': 'company_code parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subject = Company.objects.get(company_code=company_code)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Resolve peer BSE codes → Company objects
+        peer_bse_codes = [
+            subject.peer_1_comp, subject.peer_2_comp, subject.peer_3_comp,
+            subject.peer_4_comp, subject.peer_5_comp,
+        ]
+        peer_bse_codes = [c for c in peer_bse_codes if c]
+        peer_companies = list(Company.objects.filter(bse_scrip_code__in=peer_bse_codes))
+
+        # Use the latest year in the registry
+        latest_fy = sorted(DR_YEAR_MODELS.keys())[-1]
+        dr_model = DR_YEAR_MODELS[latest_fy]
+
+        def avg_comp(company):
+            result = dr_model.objects.filter(
+                director__company=company,
+                total_remuneration__isnull=False,
+            ).aggregate(avg=Avg('total_remuneration'))
+            return float(result['avg']) if result['avg'] is not None else None
+
+        bars = []
+        subject_avg = avg_comp(subject)
+        if subject_avg is not None:
+            bars.append({'name': subject.company_name, 'avg_compensation': round(subject_avg), 'is_subject': True})
+
+        for peer in peer_companies:
+            avg = avg_comp(peer)
+            if avg is not None:
+                bars.append({'name': peer.company_name, 'avg_compensation': round(avg), 'is_subject': False})
+
+        # Sort by compensation descending so the chart reads naturally
+        bars.sort(key=lambda x: x['avg_compensation'], reverse=True)
+
+        return Response({'financial_year': latest_fy, 'bars': bars})
 
 
 # ============================================================================
@@ -310,10 +371,10 @@ class DirectorViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DirectorSerializer
     permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['company', 'category']
-    search_fields = ['name', 'director_id']
-    ordering_fields = ['name', 'appointment_date']
-    ordering = ['name']
+    filterset_fields = ['company', 'director_category']
+    search_fields = ['director_name', 'director_code', 'din']
+    ordering_fields = ['director_name', 'appointment_date']
+    ordering = ['director_name']
     pagination_class = None
 
     @action(detail=False, methods=['get'])
@@ -321,11 +382,11 @@ class DirectorViewSet(viewsets.ReadOnlyModelViewSet):
         """Get directors as dropdown list."""
         company_id = request.query_params.get('company_id')
         
-        query = Director.objects.values('director_id', 'name', 'company__name')
+        query = Director.objects.values('id', 'director_code', 'director_name', 'din', 'company__company_name')
         if company_id:
             query = query.filter(company_id=company_id)
         
-        query = query.order_by('name')
+        query = query.order_by('director_name')
         return Response(query)
 
     @action(detail=False, methods=['get'])
@@ -340,18 +401,18 @@ class DirectorViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         try:
-            company = Company.objects.get(company_id=company_id)
+            company = Company.objects.get(company_code=company_id)
         except Company.DoesNotExist:
             return Response(
                 {'error': 'Company not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        directors = Director.objects.filter(company=company).order_by('name')
+        directors = Director.objects.filter(company=company).order_by('director_name')
         serializer = self.get_serializer(directors, many=True)
         
         return Response({
-            'company': {'id': company.company_id, 'name': company.name},
+            'company': {'id': company.id, 'company_code': company.company_code, 'name': company.company_name},
             'directors': serializer.data
         })
 
@@ -374,10 +435,10 @@ class DirectorRemunerationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DirectorRemunerationSerializer
     permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['company', 'director', 'fy_label']
-    search_fields = ['director__name', 'company__name']
-    ordering_fields = ['fy_end_date', 'total_remuneration']
-    ordering = ['-fy_end_date']
+    filterset_fields = ['director', 'financial_year']
+    search_fields = ['director__director_name', 'director__company__company_name']
+    ordering_fields = ['financial_year', 'total_remuneration']
+    ordering = ['-financial_year']
     pagination_class = None
 
     @action(detail=False, methods=['get'])
@@ -392,12 +453,16 @@ class DirectorRemunerationViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        query = DirectorRemuneration.objects.filter(director_id=director_id)
-        if company_id:
-            query = query.filter(company_id=company_id)
-        
-        query = query.order_by('-fy_end_date')
-        serializer = self.get_serializer(query, many=True)
+        # Query per-year tables (latest years first via reversed sorted keys)
+        active_fys = sorted(DR_YEAR_MODELS.keys())  # ['FY12' ... 'FY16']
+        all_records = []
+        for fy in reversed(active_fys):
+            model = DR_YEAR_MODELS[fy]
+            qs = model.objects.filter(director_id=director_id).select_related('director__company')
+            if company_id:
+                qs = qs.filter(director__company_id=company_id)
+            all_records.extend(list(qs))
+        serializer = self.get_serializer(all_records, many=True)
         
         return Response({
             'director_id': director_id,
@@ -416,20 +481,25 @@ class DirectorRemunerationViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         try:
-            company = Company.objects.get(company_id=company_id)
+            company = Company.objects.get(company_code=company_id)
         except Company.DoesNotExist:
             return Response(
                 {'error': 'Company not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        remuneration = DirectorRemuneration.objects.filter(
-            company=company
-        ).order_by('-fy_end_date')
-        serializer = self.get_serializer(remuneration, many=True)
+        # Query per-year tables (latest years first via reversed sorted keys)
+        active_fys = sorted(DR_YEAR_MODELS.keys())  # ['FY12' ... 'FY16']
+        all_records = []
+        for fy in reversed(active_fys):
+            model = DR_YEAR_MODELS[fy]
+            all_records.extend(list(
+                model.objects.filter(director__company=company).select_related('director__company')
+            ))
+        serializer = self.get_serializer(all_records, many=True)
         
         return Response({
-            'company': {'id': company.company_id, 'name': company.name},
+            'company': {'id': company.id, 'company_code': company.company_code, 'name': company.company_name},
             'remuneration_data': serializer.data
         })
 
@@ -438,24 +508,24 @@ class DirectorRemunerationViewSet(viewsets.ReadOnlyModelViewSet):
 # DATA VIEWS - FINANCIAL DATA
 # ============================================================================
 
-class CompanyFinancialTimeSeriesViewSet(viewsets.ReadOnlyModelViewSet):
+class CompanyFinancialsViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet for company financial time-series data.
+    ViewSet for company financials time-series data.
     - List all financial records
-    - Filter by company, fiscal year
+    - Filter by company, financial year
     - Get financial data for specific company
     - Compare financial metrics across companies
-    
+
     REQUIRES: Subscriber or Admin role
     """
-    queryset = CompanyFinancialTimeSeries.objects.all()
-    serializer_class = CompanyFinancialTimeSeriesSerializer
+    queryset = CompanyFinancials.objects.all()
+    serializer_class = CompanyFinancialsSerializer
     permission_classes = [IsSubscriberOrAdmin]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['company', 'fy_label']
-    search_fields = ['company__name']
-    ordering_fields = ['fy_end_date', 'total_income', 'pat']
-    ordering = ['-fy_end_date']
+    filterset_fields = ['company', 'financial_year']
+    search_fields = ['company__company_name']
+    ordering_fields = ['financial_year', 'total_income', 'pat']
+    ordering = ['-financial_year']
     pagination_class = None
 
     @action(detail=False, methods=['get'])
@@ -470,20 +540,25 @@ class CompanyFinancialTimeSeriesViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         try:
-            company = Company.objects.get(company_id=company_id)
+            company = Company.objects.get(company_code=company_id)
         except Company.DoesNotExist:
             return Response(
                 {'error': 'Company not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        financial = CompanyFinancialTimeSeries.objects.filter(
-            company=company
-        ).order_by('-fy_end_date')
-        serializer = self.get_serializer(financial, many=True)
+        # Query per-year tables (latest years first via reversed sorted keys)
+        active_fys = sorted(CF_YEAR_MODELS.keys())  # ['FY12' ... 'FY16']
+        all_records = []
+        for fy in reversed(active_fys):
+            model = CF_YEAR_MODELS[fy]
+            all_records.extend(list(
+                model.objects.filter(company=company).select_related('company')
+            ))
+        serializer = self.get_serializer(all_records, many=True)
         
         return Response({
-            'company': {'id': company.company_id, 'name': company.name},
+            'company': {'id': company.id, 'company_code': company.company_code, 'name': company.company_name},
             'financial_data': serializer.data
         })
 
@@ -500,16 +575,16 @@ class CompanyFinancialTimeSeriesViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         # Validate metric is a valid field
-        valid_metrics = ['total_income', 'pat', 'roa', 'employee_cost', 'mcap', 'employees']
+        valid_metrics = ['total_income', 'pat', 'roa', 'employee_cost', 'mcap']
         if metric not in valid_metrics:
             return Response(
                 {'error': f'Invalid metric. Must be one of: {", ".join(valid_metrics)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        financial = CompanyFinancialTimeSeries.objects.filter(
+        financial = CompanyFinancials.objects.filter(
             company_id__in=company_ids
-        ).order_by('company_id', '-fy_end_date')
+        ).order_by('company_id', '-financial_year')
         
         # Build comparison data
         comparison_data = {}
@@ -518,8 +593,7 @@ class CompanyFinancialTimeSeriesViewSet(viewsets.ReadOnlyModelViewSet):
                 comparison_data[record.company_id] = []
             
             comparison_data[record.company_id].append({
-                'fy_label': record.fy_label,
-                'fy_end_date': record.fy_end_date,
+                'financial_year': record.financial_year,
                 metric: getattr(record, metric, None)
             })
         
@@ -529,51 +603,5 @@ class CompanyFinancialTimeSeriesViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-# ============================================================================
-# DATA VIEWS - PEER COMPARISONS
-# ============================================================================
-
-class PeerComparisonViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet for peer company comparisons.
-    - List all peer comparisons
-    - Filter by company, peer position
-    - Get peers for specific company
-    
-    REQUIRES: Subscriber or Admin role
-    """
-    queryset = PeerComparison.objects.all()
-    serializer_class = PeerComparisonSerializer
-    permission_classes = [IsSubscriberOrAdmin]
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ['company', 'peer_position']
-    ordering_fields = ['peer_position']
-    ordering = ['peer_position']
-    pagination_class = None
-
-    @action(detail=False, methods=['get'])
-    def by_company(self, request):
-        """Get all peer comparisons for a specific company."""
-        company_id = request.query_params.get('company_id')
-        
-        if not company_id:
-            return Response(
-                {'error': 'company_id parameter required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            company = Company.objects.get(company_id=company_id)
-        except Company.DoesNotExist:
-            return Response(
-                {'error': 'Company not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        peers = PeerComparison.objects.filter(company=company).order_by('peer_position')
-        serializer = self.get_serializer(peers, many=True)
-        
-        return Response({
-            'company': {'id': company.company_id, 'name': company.name},
-            'peers': serializer.data
-        })
+# Peer comparison data is now stored inline on the Company model
+# (peer_1_comp … peer_5_comp fields) — no separate PeerComparison ViewSet needed.

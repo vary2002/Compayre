@@ -20,7 +20,7 @@ import OtherCompaniesSection from "./OtherCompaniesSection";
 import { buildEsopValueSeries } from "@/utils/esop";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { formatCurrencyCompact } from "@/utils/currency";
-import { computeCfsnGrowth, computeCAGR } from "@/utils/growth";
+import { computeCAGR } from "@/utils/growth";
 
 interface DirectorInfo {
   name: string;
@@ -31,12 +31,12 @@ interface DirectorInfo {
   salary?: string;
   bonus?: string;
   perquisites?: string;
-  esops?: number;
-  esopValue?: string;
-  fairValue?: string;
-  aggregateValue?: string;
+  esopsExercised?: number;
+  esopMarketValue?: string;
+  esopFairValue?: string;
+  optionsAggregateValue?: string;
   retirementBenefits?: string;
-  attendance?: string;
+  optionsGranted?: number;
 }
 
 interface CompanyHistory {
@@ -142,7 +142,7 @@ export default function DirectorDetailsSection({
 
             const compValues = sortedRecords.map(r => parseCurrencyValue(r.compensation));
             
-            // Calculate CAGR instead of average
+            // Calculate CAGR
             const cagrValue = computeCAGR(
               sortedRecords.map(record => ({
                 year: record.year,
@@ -152,23 +152,21 @@ export default function DirectorDetailsSection({
             const cagrPercent = cagrValue === null ? "N/A" : `${(cagrValue * 100).toFixed(1)}%`;
             const latestComp = compValues[compValues.length - 1] ?? 0;
 
-            const growthRate = computeCfsnGrowth(
-              sortedRecords.map(record => ({
-                year: record.year,
-                value: parseCurrencyValue(record.compensation),
-              })),
-            );
-            const growthPercent = growthRate === null ? null : growthRate * 100;
-            const growthLabel = growthPercent === null
+            // Total growth: (last − first) / first — simple return over full period
+            const firstComp = compValues[0] ?? 0;
+            const totalGrowthVal = firstComp > 0 && sortedRecords.length >= 2
+              ? ((latestComp - firstComp) / firstComp) * 100
+              : null;
+            const growthLabel = totalGrowthVal === null
               ? "N/A"
-              : `${growthPercent >= 0 ? "+" : ""}${growthPercent.toFixed(1)}%`;
+              : `${totalGrowthVal >= 0 ? "+" : ""}${totalGrowthVal.toFixed(1)}%`;
             
             return (
               <div className="p-4 bg-sky-50/60 border-t border-sky-100">
                 <h5 className="text-sm font-semibold text-sky-800 mb-3">Compensation Summary</h5>
                 <CompensationSummaryCards
                   latestAmount={formatCurrencyCompact(latestComp)}
-                  latestYear={sortedRecords[sortedRecords.length - 1].year.toString()}
+                  latestYear={toFY(sortedRecords[sortedRecords.length - 1].year)}
                   cagrAmount={cagrPercent}
                   yearsCount={sortedRecords.length}
                   growthPercent={growthLabel}
@@ -195,11 +193,12 @@ export default function DirectorDetailsSection({
                   yoyGrowth = ((currentComp - prevComp) / prevComp * 100).toFixed(1) + '%';
                 }
                 
-                // Calculate variable pay ratio
-                const salary = parseCurrencyValue(latestRecord.salary);
+                // Calculate variable pay ratio: (Bonus/Commission + ESOP) / Total Remuneration
                 const bonus = parseCurrencyValue(latestRecord.bonus);
-                const total = salary + bonus;
-                const variableRatio = total > 0 ? ((bonus / total) * 100).toFixed(0) + '%' : 'N/A';
+                const esop = parseCurrencyValue(latestRecord.esopMarketValue);
+                const totalComp = parseCurrencyValue(latestRecord.compensation);
+                const variablePay = bonus + esop;
+                const variableRatio = totalComp > 0 ? ((variablePay / totalComp) * 100).toFixed(0) + '%' : 'N/A';
                 
                 // Tenure calculation
                 const tenure = records.length;
@@ -217,7 +216,7 @@ export default function DirectorDetailsSection({
                     <MetricCard 
                       label="Variable Pay" 
                       value={variableRatio} 
-                      subtitle="of Fixed+Variable"
+                      subtitle="of Total Remuneration"
                       labelColor="text-amber-600"
                       valueColor="text-amber-700"
                       subtitleColor="text-amber-500"
@@ -248,7 +247,7 @@ export default function DirectorDetailsSection({
                 </div>
                 <div className="bg-teal-600 px-5 py-2 rounded-lg shadow text-white text-lg font-bold flex items-center gap-2">
                   <svg className="w-5 h-5 text-white/80 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 1.343-3 3 0 1.657 1.343 3 3 3s3-1.343 3-3c0-1.657-1.343-3-3-3zm0 13c-4.418 0-8-3.582-8-8 0-4.418 3.582-8 8-8s8 3.582 8 8c0 4.418-3.582 8-8 8z"/></svg>
-                  {formatCurrencyCompact(companyData.filter(d => d.din === director.din).reduce((sum, r) => sum + parseCurrencyValue(r.esopValue), 0))}
+                  {formatCurrencyCompact(companyData.filter(d => d.din === director.din).reduce((sum, r) => sum + parseCurrencyValue(r.esopMarketValue), 0))}
                   <span className="text-xs font-medium text-white/80">total market value</span>
                 </div>
               </div>
@@ -256,7 +255,7 @@ export default function DirectorDetailsSection({
                 const sortedRecords = companyData
                   .filter(d => d.din === director.din)
                   .sort((a, b) => a.year - b.year);
-                const hasEsopValue = sortedRecords.some(r => parseCurrencyValue(r.esopValue) > 0);
+                const hasEsopValue = sortedRecords.some(r => parseCurrencyValue(r.esopMarketValue) > 0);
                 if (!hasEsopValue) {
                   return (
                     <div className="text-center py-8 text-gray-500 text-sm">
@@ -270,16 +269,16 @@ export default function DirectorDetailsSection({
                       <thead>
                         <tr className="text-gray-700">
                           <th className="px-2 py-1">Year</th>
-                          <th className="px-2 py-1">Market Value</th>
-                          <th className="px-2 py-1">Options</th>
+                          <th className="px-2 py-1">ESOP Income</th>
+                          <th className="px-2 py-1">Options Granted</th>
                         </tr>
                       </thead>
                       <tbody>
                         {sortedRecords.map((record, idx) => (
                           <tr key={idx} className="bg-violet-50/60 hover:bg-violet-100/80 rounded">
                             <td className="px-2 py-1 font-semibold text-violet-800">{toFY(record.year)}</td>
-                            <td className="px-2 py-1 text-teal-700 font-bold">{formatCurrencyCompact(parseCurrencyValue(record.esopValue))}</td>
-                            <td className="px-2 py-1 text-purple-700">{record.esops ? record.esops.toLocaleString() : '-'}</td>
+                            <td className="px-2 py-1 text-teal-700 font-bold">{formatCurrencyCompact(parseCurrencyValue(record.esopMarketValue))}</td>
+                            <td className="px-2 py-1 text-purple-700">{record.optionsGranted ? record.optionsGranted.toLocaleString() : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -288,7 +287,7 @@ export default function DirectorDetailsSection({
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">Total options granted (last 5 years):</span>
                         <span className="inline-block bg-purple-100 text-purple-800 font-bold px-3 py-1 rounded-full text-xs shadow-sm">
-                          {sortedRecords.reduce((sum, r) => sum + (r.esops || 0), 0).toLocaleString()}
+                          {sortedRecords.reduce((sum, r) => sum + (r.optionsGranted || 0), 0).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -349,22 +348,20 @@ export default function DirectorDetailsSection({
                     const retirement = parseCurrencyValue(r.retirementBenefits);
                     const perquisites = parseCurrencyValue(r.perquisites);
                     const bonus = parseCurrencyValue(r.bonus);
-                    // payExclEsops = total compensation minus ESOP value if available, else sum of components
-                    const comp = parseCurrencyValue(r.compensation);
-                    const esopValue = parseCurrencyValue(r.esopValue);
-                    // If comp and esopValue are available, subtract esopValue from comp, else sum components
-                    const payExclEsops =
-                      comp && esopValue
-                        ? Math.max(comp - esopValue, 0)
-                        : salary + retirement + perquisites + bonus;
+                    const hasComponents = salary + retirement + perquisites + bonus > 0;
+                    // payExclEsops = cash total pre-aggregated in source (Basic + PF + Perq + Bonus).
+                    // Only use it as a fallback bar when the individual breakdown is unavailable.
+                    const cashFallback = hasComponents
+                      ? 0
+                      : parseCurrencyValue(r.payExcludingEsops) || 0;
                     return {
                       year: r.year,
-                      salary,
-                      retirement,
-                      perquisites,
-                      bonus,
-                      payExclEsops,
-                      esops: r.esops || 0,
+                      salary:      hasComponents ? salary      : 0,
+                      retirement:  hasComponents ? retirement  : 0,
+                      perquisites: hasComponents ? perquisites : 0,
+                      bonus:       hasComponents ? bonus       : 0,
+                      payExclEsops: cashFallback,
+                      esops: r.esopsExercised || 0,
                     };
                   });
                 return <StackedBarChart data={stackedData} />;

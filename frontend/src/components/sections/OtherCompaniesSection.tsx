@@ -3,7 +3,9 @@
 
 import CompensationSummaryCards from "../cards/CompensationSummaryCards";
 import { formatCurrencyCompact } from "@/utils/currency";
-import { computeCfsnGrowth, computeCAGR } from "@/utils/growth";
+import { computeCAGR } from "@/utils/growth";
+
+const toFY = (year: number) => `FY${year.toString().slice(-2)}`;
 
 interface DirectorInfo {
   name: string;
@@ -14,10 +16,9 @@ interface DirectorInfo {
   salary?: string;
   bonus?: string;
   perquisites?: string;
-  esops?: number;
-  esopValue?: string;
+  esopsExercised?: number;
+  esopMarketValue?: string;
   retirementBenefits?: string;
-  // attendance removed
 }
 
 interface CompanyData {
@@ -108,23 +109,21 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
               const cagrPercent = cagrValue === null ? "N/A" : `${(cagrValue * 100).toFixed(1)}%`;
               const latestComp = compValues[compValues.length - 1] ?? 0;
 
-              const growthRate = computeCfsnGrowth(
-                records.map(record => ({
-                  year: record.year,
-                  value: parseCompensation(record.compensation),
-                })),
-              );
-              const growthPercent = growthRate === null ? null : growthRate * 100;
-              const growthLabel = growthPercent === null
+              // Total growth: (last − first) / first — simple return over full period
+              const firstComp = compValues[0] ?? 0;
+              const totalGrowthVal = firstComp > 0 && records.length >= 2
+                ? ((latestComp - firstComp) / firstComp) * 100
+                : null;
+              const growthLabel = totalGrowthVal === null
                 ? "N/A"
-                : `${growthPercent >= 0 ? "+" : ""}${growthPercent.toFixed(1)}%`;
+                : `${totalGrowthVal >= 0 ? "+" : ""}${totalGrowthVal.toFixed(1)}%`;
 
               return (
                 <div className="p-4 bg-gray-50 border-t border-gray-200">
                   <h5 className="text-sm font-medium text-gray-900 mb-3">Compensation Summary</h5>
                   <CompensationSummaryCards
                     latestAmount={formatCurrencyCompact(latestComp)}
-                    latestYear={records[records.length - 1].year.toString()}
+                    latestYear={toFY(records[records.length - 1].year)}
                     cagrAmount={cagrPercent}
                     yearsCount={records.length}
                     growthPercent={growthLabel}

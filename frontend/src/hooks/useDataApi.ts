@@ -1,5 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { dataApi } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { dataApi, CompanyDropdown, DirectorDropdown, DirectorRemuneration, CompanyFinancials, Company, PeerCompensationBar } from '@/lib/api';
+import {
+  buildDirectorInfoArray,
+  buildCompanyInfo,
+  buildDirectorHistory,
+  type DirectorHistory,
+} from '@/utils/transformers';
+import type { DirectorInfo, CompanyInfo } from '@/app/dashboard/data';
 
 interface UseFetchState<T> {
   data: T | null;
@@ -7,11 +14,15 @@ interface UseFetchState<T> {
   error: Error | null;
 }
 
+// ---------------------------------------------------------------------------
+// Company dropdown
+// ---------------------------------------------------------------------------
+
 /**
- * Hook to fetch companies dropdown data
+ * All companies as a lightweight dropdown list (id, company_code, company_name).
  */
 export function useCompaniesDropdown() {
-  const [state, setState] = useState<UseFetchState<any[]>>({
+  const [state, setState] = useState<UseFetchState<CompanyDropdown[]>>({
     data: null,
     loading: true,
     error: null,
@@ -33,11 +44,42 @@ export function useCompaniesDropdown() {
   return state;
 }
 
+// ---------------------------------------------------------------------------
+// Directors dropdown
+// ---------------------------------------------------------------------------
+
 /**
- * Hook to fetch directors dropdown data (optionally filtered by company)
+ * All directors as a dropdown list (id, director_code, director_name, din, company__company_name).
+ * Used by CompareTab to populate the executive director search.
  */
-export function useDirectorsDropdown(companyId?: string) {
-  const [state, setState] = useState<UseFetchState<any[]>>({
+export function useAllDirectorsDropdown() {
+  const [state, setState] = useState<UseFetchState<DirectorDropdown[]>>({
+    data: null,
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await dataApi.getDirectorDropdown();
+        setState({ data, loading: false, error: null });
+      } catch (error) {
+        setState({ data: null, loading: false, error: error as Error });
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  return state;
+}
+
+/**
+ * Directors dropdown optionally filtered by company. Used for company-scoped selects.
+ */
+export function useDirectorsDropdown(companyId?: number | string) {
+  const [state, setState] = useState<UseFetchState<DirectorDropdown[]>>({
     data: null,
     loading: true,
     error: null,
@@ -59,9 +101,149 @@ export function useDirectorsDropdown(companyId?: string) {
   return state;
 }
 
+// ---------------------------------------------------------------------------
+// Company dashboard data (LookupTab primary hook)
+// ---------------------------------------------------------------------------
+
+interface CompanyDashboardData {
+  directorInfos: DirectorInfo[];
+  companyInfo: CompanyInfo | null;
+  companyRecord: Company | null;
+  peerBars: PeerCompensationBar[];
+  peerFinancialYear: string;
+}
+
 /**
- * Hook to fetch sectors for filtering
+ * Loads all data needed for the LookupTab when a company is selected.
+ * Fetches remuneration records (with embedded director fields) and financials
+ * for the given company_code, then transforms into DirectorInfo[] + CompanyInfo.
  */
+export function useCompanyDashboardData(companyCode?: string | null) {
+  const [state, setState] = useState<UseFetchState<CompanyDashboardData>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!companyCode) {
+      setState({ data: null, loading: false, error: null });
+      return;
+    }
+
+    let cancelled = false;
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    const fetchData = async () => {
+      try {
+        const [remunerationResponse, financialsResponse, peerResponse] = await Promise.all([
+          dataApi.getCompanyRemunerationData(companyCode),
+          dataApi.getCompanyFinancialData(companyCode),
+          dataApi.getPeerCompensation(companyCode).catch(() => ({ financial_year: '', bars: [] as PeerCompensationBar[] })),
+        ]);
+
+        if (cancelled) return;
+
+        const remuneration: DirectorRemuneration[] = remunerationResponse.remuneration_data ?? [];
+        const financials: CompanyFinancials[] = financialsResponse.financial_data ?? [];
+
+        // Build financials lookup by year
+        const financialsByYear: Record<string, CompanyFinancials> = {};
+        for (const fin of financials) {
+          financialsByYear[fin.financial_year] = fin;
+        }
+
+        // Fetch full company record for peer comps, salary-to-median, etc.
+        let companyRecord: Company | null = null;
+        try {
+          const companyId = remunerationResponse.company?.id;
+          if (companyId) {
+            companyRecord = await dataApi.getCompanyDetails(companyId);
+          }
+        } catch {
+          // Non-critical — peer comps and salary-to-median will be absent
+        }
+
+        if (cancelled) return;
+
+        const directorInfos = buildDirectorInfoArray(remuneration, financialsByYear, companyRecord);
+
+        const sortedYears = Object.keys(financialsByYear).sort().reverse();
+        const latestFin = sortedYears.length > 0 ? financialsByYear[sortedYears[0]] : null;
+        const companyInfo = companyRecord ? buildCompanyInfo(companyRecord, latestFin) : null;
+
+        setState({ data: { directorInfos, companyInfo, companyRecord, peerBars: peerResponse.bars, peerFinancialYear: peerResponse.financial_year }, loading: false, error: null });
+      } catch (error) {
+        if (!cancelled) {
+          setState({ data: null, loading: false, error: error as Error });
+        }
+      }
+    };
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [companyCode]);
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Director remuneration history (CompareTab hook)
+// ---------------------------------------------------------------------------
+
+interface DirectorHistoryData {
+  history: DirectorHistory;
+  directorId: number;
+}
+
+/**
+ * Fetches the full remuneration history for one director (by their DB id).
+ * Returns DirectorHistory = [{company, data: DirectorInfo[]}]
+ */
+export function useDirectorHistory(directorId?: number | null) {
+  const [state, setState] = useState<UseFetchState<DirectorHistoryData>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!directorId) {
+      setState({ data: null, loading: false, error: null });
+      return;
+    }
+
+    let cancelled = false;
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    const fetchData = async () => {
+      try {
+        const response = await dataApi.getDirectorRemunerationTimeSeries(directorId);
+        if (cancelled) return;
+
+        const remuneration: DirectorRemuneration[] = response.remuneration_data ?? [];
+        const companyName = remuneration[0]?.company_name ?? '';
+        const history = buildDirectorHistory(remuneration, companyName);
+
+        setState({ data: { history, directorId }, loading: false, error: null });
+      } catch (error) {
+        if (!cancelled) {
+          setState({ data: null, loading: false, error: error as Error });
+        }
+      }
+    };
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [directorId]);
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Existing utility hooks
+// ---------------------------------------------------------------------------
+
 export function useSectors() {
   const [state, setState] = useState<UseFetchState<string[]>>({
     data: null,
@@ -85,9 +267,6 @@ export function useSectors() {
   return state;
 }
 
-/**
- * Hook to fetch industries for filtering
- */
 export function useIndustries() {
   const [state, setState] = useState<UseFetchState<string[]>>({
     data: null,
@@ -111,10 +290,7 @@ export function useIndustries() {
   return state;
 }
 
-/**
- * Hook to fetch director remuneration time series data for charting
- */
-export function useDirectorRemunerationTimeSeries(directorId?: string, companyId?: string) {
+export function useDirectorRemunerationTimeSeries(directorId?: number | string, companyId?: string) {
   const [state, setState] = useState<UseFetchState<any>>({
     data: null,
     loading: !!directorId,
@@ -142,25 +318,22 @@ export function useDirectorRemunerationTimeSeries(directorId?: string, companyId
   return state;
 }
 
-/**
- * Hook to fetch company financial data for charting
- */
-export function useCompanyFinancialData(companyId?: string) {
+export function useCompanyFinancialData(companyCode?: string) {
   const [state, setState] = useState<UseFetchState<any>>({
     data: null,
-    loading: !!companyId,
+    loading: !!companyCode,
     error: null,
   });
 
   useEffect(() => {
-    if (!companyId) {
+    if (!companyCode) {
       setState({ data: null, loading: false, error: null });
       return;
     }
 
     const fetchData = async () => {
       try {
-        const data = await dataApi.getCompanyFinancialData(companyId);
+        const data = await dataApi.getCompanyFinancialData(companyCode);
         setState({ data, loading: false, error: null });
       } catch (error) {
         setState({ data: null, loading: false, error: error as Error });
@@ -168,30 +341,27 @@ export function useCompanyFinancialData(companyId?: string) {
     };
 
     fetchData();
-  }, [companyId]);
+  }, [companyCode]);
 
   return state;
 }
 
-/**
- * Hook to fetch company remuneration data (all directors in company)
- */
-export function useCompanyRemunerationData(companyId?: string) {
+export function useCompanyRemunerationData(companyCode?: string) {
   const [state, setState] = useState<UseFetchState<any>>({
     data: null,
-    loading: !!companyId,
+    loading: !!companyCode,
     error: null,
   });
 
   useEffect(() => {
-    if (!companyId) {
+    if (!companyCode) {
       setState({ data: null, loading: false, error: null });
       return;
     }
 
     const fetchData = async () => {
       try {
-        const data = await dataApi.getCompanyRemunerationData(companyId);
+        const data = await dataApi.getCompanyRemunerationData(companyCode);
         setState({ data, loading: false, error: null });
       } catch (error) {
         setState({ data: null, loading: false, error: error as Error });
@@ -199,46 +369,12 @@ export function useCompanyRemunerationData(companyId?: string) {
     };
 
     fetchData();
-  }, [companyId]);
+  }, [companyCode]);
 
   return state;
 }
 
-/**
- * Hook to fetch peer comparisons for a company
- */
-export function useCompanyPeerComparisons(companyId?: string) {
-  const [state, setState] = useState<UseFetchState<any>>({
-    data: null,
-    loading: !!companyId,
-    error: null,
-  });
-
-  useEffect(() => {
-    if (!companyId) {
-      setState({ data: null, loading: false, error: null });
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        const data = await dataApi.getCompanyPeerComparisons(companyId);
-        setState({ data, loading: false, error: null });
-      } catch (error) {
-        setState({ data: null, loading: false, error: error as Error });
-      }
-    };
-
-    fetchData();
-  }, [companyId]);
-
-  return state;
-}
-
-/**
- * Hook to compare financial metrics across multiple companies
- */
-export function useCompaniesFinancialComparison(companyIds?: string[], metric: string = 'total_income') {
+export function useCompaniesFinancialComparison(companyIds?: (string | number)[], metric: string = 'total_income') {
   const [state, setState] = useState<UseFetchState<any>>({
     data: null,
     loading: !!companyIds && companyIds.length > 0,
@@ -266,10 +402,7 @@ export function useCompaniesFinancialComparison(companyIds?: string[], metric: s
   return state;
 }
 
-/**
- * Hook to fetch company details
- */
-export function useCompanyDetails(companyId?: string) {
+export function useCompanyDetails(companyId?: string | number) {
   const [state, setState] = useState<UseFetchState<any>>({
     data: null,
     loading: !!companyId,
@@ -297,10 +430,7 @@ export function useCompanyDetails(companyId?: string) {
   return state;
 }
 
-/**
- * Hook to fetch director details
- */
-export function useDirectorDetails(directorId?: string) {
+export function useDirectorDetails(directorId?: string | number) {
   const [state, setState] = useState<UseFetchState<any>>({
     data: null,
     loading: !!directorId,

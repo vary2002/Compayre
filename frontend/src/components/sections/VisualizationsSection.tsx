@@ -3,16 +3,69 @@
 
 
 import type { MouseEvent } from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import PieChart from "../charts/PieChart";
 import MetricCard from "../cards/MetricCard";
 import { formatCurrencyCompact } from "@/utils/currency";
+import { DATASET_LATEST_YEAR } from "@/lib/constants";
+import type { PeerCompensationBar } from "@/lib/api";
 
-interface VisualizationsSectionProps {
-  toFY: (year: number) => string;
+interface DirectorInfo {
+  name: string;
+  din: string;
+  year: number;
+  compensation: string;
+  salary?: string;
+  bonus?: string;
+  perquisites?: string;
+  retirementBenefits?: string;
+  esopMarketValue?: string;
+  totalIncome?: string;
+  profitAfterTax?: string;
+  returnOnAssets?: string;
+  employeeCost?: string;
+  salaryToMedianEmployeeRatio?: string;
+  peerCompensations?: string[];
+  companyMarketCap?: string;
 }
 
-export default function VisualizationsSection({ toFY }: VisualizationsSectionProps) {
+// Parse "₹X,XX,XXX Cr" string to raw rupees
+const parseCrToRupees = (val?: string): number => {
+  if (!val) return 0;
+  const cleaned = val.replace(/[₹,\s]/g, "");
+  const num = parseFloat(cleaned);
+  if (!Number.isFinite(num)) return 0;
+  if (/cr/i.test(val)) return Math.round(num * 10_000_000);
+  if (/lakh/i.test(val)) return Math.round(num * 100_000);
+  return num;
+};
+
+// Parse "9.0%" → 9.0
+const parsePercent = (val?: string): number => {
+  if (!val) return 0;
+  const num = parseFloat(val.replace(/%/g, "").trim());
+  return Number.isFinite(num) ? num : 0;
+};
+
+// Parse "₹32,00,000" → 3200000
+const parseCompensation = (val?: string): number => {
+  if (!val) return 0;
+  const num = parseFloat(val.replace(/[₹,]/g, "").trim());
+  return Number.isFinite(num) ? num : 0;
+};
+
+interface VisualizationsSectionProps {
+  toFY: (year: number | undefined | null) => string;
+  companyDirectorRecords?: DirectorInfo[];
+  companyMarketCap?: string;
+  numberOfEmployees?: string;
+  peerBars?: PeerCompensationBar[];
+  peerFinancialYear?: string;
+}
+
+const CRORE_IN_RUPEES = 10_000_000;
+
+export default function VisualizationsSection({ toFY, companyDirectorRecords = [], companyMarketCap, numberOfEmployees, peerBars = [], peerFinancialYear }: VisualizationsSectionProps) {
   const [hoveredSparkPoint, setHoveredSparkPoint] = useState<{
     seriesTitle: string;
     yearLabel: string;
@@ -23,143 +76,197 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
     yPercent: number;
   } | null>(null);
   const [hoveredRemBarIndex, setHoveredRemBarIndex] = useState<number | null>(null);
-  const baseYear = 2019;
-  const performanceYears = Array.from({ length: 5 }, (_, idx) => baseYear + idx);
-  const CRORE_IN_RUPEES = 10_000_000;
-  const remunerationTrend = [
-    { year: 1, amountRupees: 2.5 * CRORE_IN_RUPEES, heightPx: 110 },
-    { year: 2, amountRupees: 2.8 * CRORE_IN_RUPEES, heightPx: 130 },
-    { year: 3, amountRupees: 2.6 * CRORE_IN_RUPEES, heightPx: 120 },
-    { year: 4, amountRupees: 3.5 * CRORE_IN_RUPEES, heightPx: 160 },
-    { year: 5, amountRupees: 3.8 * CRORE_IN_RUPEES, heightPx: 180 },
-  ];
 
-  const remunerationComponents = [
-    { label: "Basic Salary", share: 40, amountRupees: 15_200_000, color: "#3B82F6" },
-    { label: "Bonus/Commission", share: 25, amountRupees: 9_500_000, color: "#10B981" },
-    { label: "Perquisites/Allowances", share: 20, amountRupees: 7_600_000, color: "#F59E0B" },
-    { label: "ESOPS", share: 10, amountRupees: 3_800_000, color: "#8B5CF6" },
-    { label: "PF/Retirement", share: 5, amountRupees: 1_900_000, color: "#6B7280" },
-  ];
+  // --- Remuneration trend: average compensation per year ---
+  const remunerationTrend = useMemo(() => {
+    const byYear = new Map<number, number[]>();
+    companyDirectorRecords.forEach(r => {
+      const val = parseCompensation(r.compensation);
+      if (val > 0) {
+        const arr = byYear.get(r.year) ?? [];
+        arr.push(val);
+        byYear.set(r.year, arr);
+      }
+    });
+    const entries = Array.from(byYear.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, vals]) => ({ year, amountRupees: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) }));
+    if (entries.length === 0) {
+      return [
+        { year: DATASET_LATEST_YEAR - 4, amountRupees: 2.5 * CRORE_IN_RUPEES, heightPx: 110 },
+        { year: DATASET_LATEST_YEAR - 3, amountRupees: 2.8 * CRORE_IN_RUPEES, heightPx: 130 },
+        { year: DATASET_LATEST_YEAR - 2, amountRupees: 2.6 * CRORE_IN_RUPEES, heightPx: 120 },
+        { year: DATASET_LATEST_YEAR - 1, amountRupees: 3.5 * CRORE_IN_RUPEES, heightPx: 160 },
+        { year: DATASET_LATEST_YEAR,     amountRupees: 3.8 * CRORE_IN_RUPEES, heightPx: 180 },
+      ];
+    }
+    const maxAmount = Math.max(...entries.map(e => e.amountRupees));
+    return entries.map(e => ({
+      ...e,
+      heightPx: maxAmount === 0 ? 40 : Math.max(40, Math.round((e.amountRupees / maxAmount) * 180)),
+    }));
+  }, [companyDirectorRecords]);
 
-  const totalRemunerationAmount = remunerationComponents.reduce((sum, item) => sum + item.amountRupees, 0);
+  const performanceYears = remunerationTrend.map(r => r.year);
+  const latestDisplayYear = performanceYears.length > 0 ? performanceYears[performanceYears.length - 1] : DATASET_LATEST_YEAR;
 
-  const performanceSeries = [
-    {
-      title: "Total Income",
-      type: "currency" as const,
-      values: [12500, 13200, 14800, 15600, 17200].map(value => value * CRORE_IN_RUPEES),
-      accent: "#2563EB",
-    },
-    {
-      title: "PAT",
-      type: "currency" as const,
-      values: [2100, 2400, 2600, 2900, 3200].map(value => value * CRORE_IN_RUPEES),
-      accent: "#059669",
-    },
-    {
-      title: "ROA (%)",
-      type: "percentage" as const,
-      values: [8.5, 9.1, 9.8, 10.2, 10.8],
-      accent: "#7C3AED",
-    },
-    {
-      title: "Employee Cost",
-      type: "currency" as const,
-      values: [3200, 3500, 3800, 4100, 4500].map(value => value * CRORE_IN_RUPEES),
-      accent: "#EA580C",
-    },
-  ];
+  // --- Remuneration components: breakdown from latest year's records ---
+  const { remunerationComponents, totalRemunerationAmount } = useMemo(() => {
+    const latestYear = Math.max(...companyDirectorRecords.map(r => r.year), 0);
+    const latestRecords = companyDirectorRecords.filter(r => r.year === latestYear);
+    const fallback = [
+      { label: "Basic Salary", share: 40, amountRupees: 15_200_000, color: "#3B82F6" },
+      { label: "Bonus/Commission", share: 25, amountRupees: 9_500_000, color: "#10B981" },
+      { label: "Perquisites/Allowances", share: 20, amountRupees: 7_600_000, color: "#F59E0B" },
+      { label: "ESOPs", share: 10, amountRupees: 3_800_000, color: "#8B5CF6" },
+      { label: "PF/Retirement", share: 5, amountRupees: 1_900_000, color: "#6B7280" },
+    ];
+    if (latestRecords.length === 0) return { remunerationComponents: fallback, totalRemunerationAmount: fallback.reduce((s, c) => s + c.amountRupees, 0) };
+    const avgField = (get: (r: DirectorInfo) => string | undefined) => {
+      const vals = latestRecords.map(r => parseCompensation(get(r))).filter(v => v > 0);
+      return vals.length === 0 ? 0 : Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
+    };
+    const salary = avgField(r => r.salary);
+    const bonus = avgField(r => r.bonus);
+    const perquisites = avgField(r => r.perquisites);
+    const retirement = avgField(r => r.retirementBenefits);
+    const esop = avgField(r => r.esopMarketValue);
+    const total = salary + bonus + perquisites + retirement + esop;
+    if (total === 0) return { remunerationComponents: fallback, totalRemunerationAmount: fallback.reduce((s, c) => s + c.amountRupees, 0) };
+    const raw = [
+      { label: "Basic Salary", amountRupees: salary, color: "#3B82F6" },
+      { label: "Bonus/Commission", amountRupees: bonus, color: "#10B981" },
+      { label: "Perquisites/Allowances", amountRupees: perquisites, color: "#F59E0B" },
+      { label: "ESOPs", amountRupees: esop, color: "#8B5CF6" },
+      { label: "PF/Retirement", amountRupees: retirement, color: "#6B7280" },
+    ].filter(c => c.amountRupees > 0);
+    return {
+      remunerationComponents: raw.map(c => ({ ...c, share: Math.round((c.amountRupees / total) * 100) })),
+      totalRemunerationAmount: total,
+    };
+  }, [companyDirectorRecords]);
 
-  const totalIncomeSeries = performanceSeries.find(series => series.title === "Total Income");
+  // --- Performance series: company financials deduplicated by year ---
+  const performanceSeries = useMemo(() => {
+    const byYear = new Map<number, { totalIncome: number; profitAfterTax: number; returnOnAssets: number; employeeCost: number }>();
+    companyDirectorRecords.forEach(r => {
+      if (!byYear.has(r.year)) {
+        byYear.set(r.year, {
+          totalIncome: parseCrToRupees(r.totalIncome),
+          profitAfterTax: parseCrToRupees(r.profitAfterTax),
+          returnOnAssets: parsePercent(r.returnOnAssets),
+          employeeCost: parseCrToRupees(r.employeeCost),
+        });
+      }
+    });
+    const sorted = Array.from(byYear.entries()).sort((a, b) => a[0] - b[0]);
+    if (sorted.length === 0) {
+      return [
+        { title: "Total Income", type: "currency" as const, values: [12500, 13200, 14800, 15600, 17200].map(v => v * CRORE_IN_RUPEES), accent: "#2563EB" },
+        { title: "PAT", type: "currency" as const, values: [2100, 2400, 2600, 2900, 3200].map(v => v * CRORE_IN_RUPEES), accent: "#059669" },
+        { title: "ROA (%)", type: "percentage" as const, values: [8.5, 9.1, 9.8, 10.2, 10.8], accent: "#7C3AED" },
+        { title: "Employee Cost", type: "currency" as const, values: [3200, 3500, 3800, 4100, 4500].map(v => v * CRORE_IN_RUPEES), accent: "#EA580C" },
+      ];
+    }
+    return [
+      { title: "Total Income", type: "currency" as const, values: sorted.map(([, d]) => d.totalIncome), accent: "#2563EB" },
+      { title: "PAT", type: "currency" as const, values: sorted.map(([, d]) => d.profitAfterTax), accent: "#059669" },
+      { title: "ROA (%)", type: "percentage" as const, values: sorted.map(([, d]) => d.returnOnAssets), accent: "#7C3AED" },
+      { title: "Employee Cost", type: "currency" as const, values: sorted.map(([, d]) => d.employeeCost), accent: "#EA580C" },
+    ];
+  }, [companyDirectorRecords]);
 
-  const snapshotMetrics = [
-    {
-      label: "Avg Remuneration",
-      value: formatCurrencyCompact(320_000_000),
-      subtitle: "↑ 12% YoY",
-      valueColor: "text-emerald-700",
-      labelColor: "text-emerald-600",
-      subtitleColor: "text-emerald-500",
-    },
-    {
-      label: "Salary to Median Pay",
-      value: "28x",
-      subtitle: "Peer median: 24x",
-      valueColor: "text-amber-700",
-      labelColor: "text-amber-600",
-      subtitleColor: "text-amber-500",
-    },
-    {
-      label: "Market Cap",
-      value: formatCurrencyCompact(52_000 * CRORE_IN_RUPEES),
-      subtitle: "↑ 18% YoY",
-      valueColor: "text-indigo-700",
-      labelColor: "text-indigo-600",
-      subtitleColor: "text-indigo-500",
-    },
-    {
-      label: "Total Employees",
-      value: "45,200",
-      subtitle: "↑ 8% YoY",
-      valueColor: "text-teal-700",
-      labelColor: "text-teal-600",
-      subtitleColor: "text-teal-500",
-    },
-  ];
+  // --- Snapshot metrics ---
+  const snapshotMetrics = useMemo(() => {
+    const latestYear = Math.max(...companyDirectorRecords.map(r => r.year), 0);
+    const latestRecords = companyDirectorRecords.filter(r => r.year === latestYear);
+    const prevYear = Math.max(...companyDirectorRecords.filter(r => r.year < latestYear).map(r => r.year), 0);
+    const prevRecords = companyDirectorRecords.filter(r => r.year === prevYear);
+    const avgComp = latestRecords.length === 0 ? 0 : Math.round(
+      latestRecords.map(r => parseCompensation(r.compensation)).reduce((s, v) => s + v, 0) / latestRecords.length
+    );
+    const prevAvgComp = prevRecords.length === 0 ? 0 : Math.round(
+      prevRecords.map(r => parseCompensation(r.compensation)).reduce((s, v) => s + v, 0) / prevRecords.length
+    );
+    const compYoY = prevAvgComp > 0 ? ((avgComp - prevAvgComp) / prevAvgComp) * 100 : null;
+    const medianRatio = latestRecords.find(r => r.salaryToMedianEmployeeRatio)?.salaryToMedianEmployeeRatio ?? null;
+    const marketCapRaw = parseCrToRupees(companyMarketCap);
+    return [
+      {
+        label: "Avg Remuneration",
+        value: avgComp > 0 ? formatCurrencyCompact(avgComp) : "—",
+        subtitle: compYoY !== null ? `${compYoY >= 0 ? "↑" : "↓"} ${Math.abs(compYoY).toFixed(1)}% YoY` : "Latest FY",
+        valueColor: "text-emerald-700",
+        labelColor: "text-emerald-600",
+        subtitleColor: "text-emerald-500",
+      },
+      {
+        label: "Salary to Median Pay",
+        value: medianRatio ? `${medianRatio}x` : "—",
+        subtitle: "Median employee pay ratio",
+        valueColor: "text-amber-700",
+        labelColor: "text-amber-600",
+        subtitleColor: "text-amber-500",
+      },
+      {
+        label: "Market Cap",
+        value: marketCapRaw > 0 ? formatCurrencyCompact(marketCapRaw) : (companyMarketCap ?? "—"),
+        subtitle: "Current market capitalisation",
+        valueColor: "text-indigo-700",
+        labelColor: "text-indigo-600",
+        subtitleColor: "text-indigo-500",
+      },
+      {
+        label: "Total Employees",
+        value: numberOfEmployees ?? "—",
+        subtitle: "Workforce headcount",
+        valueColor: "text-teal-700",
+        labelColor: "text-teal-600",
+        subtitleColor: "text-teal-500",
+      },
+    ];
+  }, [companyDirectorRecords, companyMarketCap, numberOfEmployees]);
 
-  const peerMetricPalette: Record<"currency" | "percentage" | "ratio", {
-    value: string;
-  }> = {
-    currency: {
-      value: "text-sky-900",
-    },
-    percentage: {
-      value: "text-emerald-800",
-    },
-    ratio: {
-      value: "text-amber-800",
-    },
+  // --- Peer comparison: avg director pay vs peer compensations ---
+  const peerComparisonMetrics = useMemo(() => {
+    const latestYear = Math.max(...companyDirectorRecords.map(r => r.year), 0);
+    const latestRecords = companyDirectorRecords.filter(r => r.year === latestYear);
+    const avgComp = latestRecords.length === 0 ? 0 : Math.round(
+      latestRecords.map(r => parseCompensation(r.compensation)).reduce((s, v) => s + v, 0) / latestRecords.length
+    );
+    const peerTotals: number[] = [0, 0, 0, 0, 0];
+    let peerRowCount = 0;
+    latestRecords.forEach(r => {
+      if (r.peerCompensations && r.peerCompensations.length > 0) {
+        r.peerCompensations.forEach((p, i) => { if (i < 5) peerTotals[i] += parseCompensation(p); });
+        peerRowCount++;
+      }
+    });
+    const peers = peerRowCount > 0 ? peerTotals.map(v => Math.round(v / peerRowCount)) : null;
+    if (!peers || avgComp === 0) {
+      return [
+        { metric: "Avg Remuneration", type: "currency" as const, company: 320_000_000, peer1: 295_000_000, peer2: 308_000_000, peer3: 285_000_000, note: "Company vs peer director compensation" },
+        { metric: "Salary to Median Pay", type: "ratio" as const, company: 28, peer1: 24, peer2: 26, peer3: 25, note: "Median employee pay ratio" },
+      ];
+    }
+    return [
+      {
+        metric: "Avg Remuneration",
+        type: "currency" as const,
+        company: avgComp,
+        peer1: peers[0],
+        peer2: peers[1],
+        peer3: peers[2],
+        note: "Latest FY avg director remuneration vs peer companies",
+      },
+    ];
+  }, [companyDirectorRecords]);
+
+  const peerMetricPalette: Record<"currency" | "percentage" | "ratio", { value: string }> = {
+    currency: { value: "text-sky-900" },
+    percentage: { value: "text-emerald-800" },
+    ratio: { value: "text-amber-800" },
   };
-
-  const peerComparisonMetrics = [
-    {
-      metric: "Avg Remuneration",
-      type: "currency" as const,
-      company: 320_000_000,
-      peer1: 295_000_000,
-      peer2: 308_000_000,
-      peer3: 285_000_000,
-      note: "Company leads peers by ~8%",
-    },
-    {
-      metric: "Salary to Median Pay",
-      type: "ratio" as const,
-      company: 28,
-      peer1: 24,
-      peer2: 26,
-      peer3: 25,
-      note: "Slightly above industry governance threshold",
-    },
-    {
-      metric: "Variable Pay Mix",
-      type: "percentage" as const,
-      company: 46,
-      peer1: 42,
-      peer2: 44,
-      peer3: 41,
-      note: "Higher upside bias vs peers",
-    },
-    {
-      metric: "Equity-aligned Pay",
-      type: "currency" as const,
-      company: 110_000_000,
-      peer1: 95_000_000,
-      peer2: 88_000_000,
-      peer3: 92_000_000,
-      note: "ESOP exposure remains elevated",
-    },
-  ];
 
   const formatPeerValue = (value: number, type: "currency" | "percentage" | "ratio") => {
     if (!Number.isFinite(value)) {
@@ -198,9 +305,9 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
     const earliest = values[0];
     const peakValue = Math.max(...values);
     const peakIndex = values.indexOf(peakValue);
-    const peakYear = toFY(performanceYears[peakIndex]);
+    const peakYear = performanceYears[peakIndex] != null ? toFY(performanceYears[peakIndex]) : "—";
     const latestIndex = values.length - 1;
-    const latestYear = toFY(performanceYears[latestIndex]);
+    const latestYear = performanceYears[latestIndex] != null ? toFY(performanceYears[latestIndex]) : "—";
     const peakIsLatest = peakIndex === latestIndex;
 
     if (series.type === "currency") {
@@ -281,7 +388,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
           onMouseLeave={() => setHoveredRemBarIndex(null)}
         >
           {remunerationTrend.map((data, index) => {
-            const yearLabel = toFY(2019 + data.year);
+            const yearLabel = toFY(data.year);
             const isHovered = hoveredRemBarIndex === index;
 
             return (
@@ -338,7 +445,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
       {/* Remuneration Components Breakdown */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
         <h4 className="text-lg font-medium text-gray-600 mb-4">
-          Remuneration Components ({toFY(2024)})
+          Remuneration Components ({toFY(latestDisplayYear)})
         </h4>
         <PieChart 
           data={remunerationComponents.map(component => ({
@@ -408,7 +515,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                     <div className="text-xs text-gray-500">5-year review</div>
                   </div>
                   <div className="inline-flex flex-col items-end gap-0.5 rounded-lg bg-white px-2.5 py-1.5 text-right border border-gray-200">
-                    <span className="text-[9px] uppercase tracking-wide text-gray-400">Latest (FY25)</span>
+                    <span className="text-[9px] uppercase tracking-wide text-gray-400">Latest ({toFY(latestDisplayYear)})</span>
                     <span className="text-sm font-semibold text-gray-900">{summary.latest.primary}</span>
                     <span className="text-[10px] text-gray-500">{summary.latest.secondary}</span>
                   </div>
@@ -434,7 +541,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                       </>
                     ) : (
                       <>
-                        <div className="font-semibold text-emerald-600">Current FY (FY25)</div>
+                        <div className="font-semibold text-emerald-600">Current ({toFY(latestDisplayYear)})</div>
                         <div className="text-[9px] text-gray-400">Already at 5y high</div>
                       </>
                     )}
@@ -464,7 +571,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                         onMouseEnter={() => {
                           setHoveredSparkPoint({
                             seriesTitle: series.title,
-                            yearLabel: toFY(performanceYears[idx]),
+                            yearLabel: toFY(performanceYears[idx] ?? null),
                             value: series.values[idx],
                             type: series.type,
                             accent: series.accent,
@@ -476,7 +583,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                         onFocus={() => {
                           setHoveredSparkPoint({
                             seriesTitle: series.title,
-                            yearLabel: toFY(performanceYears[idx]),
+                            yearLabel: toFY(performanceYears[idx] ?? null),
                             value: series.values[idx],
                             type: series.type,
                             accent: series.accent,
@@ -485,7 +592,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                           });
                         }}
                         onBlur={() => setHoveredSparkPoint(prev => (prev?.seriesTitle === series.title ? null : prev))}
-                        aria-label={`${series.title} ${formatPerformanceValue(series.values[idx], series.type)} in ${toFY(performanceYears[idx])}`}
+                        aria-label={`${series.title} ${formatPerformanceValue(series.values[idx], series.type)} in ${toFY(performanceYears[idx] ?? null)}`}
                       />
                     ))}
                   </svg>
@@ -542,7 +649,7 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                             className="h-2.5 w-2.5 rounded-full"
                             style={{ backgroundColor: series.accent, opacity: timelineDotOpacity }}
                           ></span>
-                          <span className="text-gray-500 font-medium">{toFY(performanceYears[idx])}</span>
+                          <span className="text-gray-500 font-medium">{toFY(performanceYears[idx] ?? null)}</span>
                         </div>
                         <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
                           <div
@@ -565,37 +672,6 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
                   })}
                 </div>
 
-                {series.title === "Employee Cost" && totalIncomeSeries && (
-                  (() => {
-                    const latestCost = series.values[series.values.length - 1];
-                    const previousCost = series.values.length > 1 ? series.values[series.values.length - 2] : null;
-                    const latestIncome = totalIncomeSeries.values[totalIncomeSeries.values.length - 1];
-                    const previousIncome = totalIncomeSeries.values.length > 1
-                      ? totalIncomeSeries.values[totalIncomeSeries.values.length - 2]
-                      : null;
-                    const costRatio = latestIncome ? (latestCost / latestIncome) * 100 : null;
-                    const previousRatio = previousIncome ? ((previousCost ?? 0) / previousIncome) * 100 : null;
-                    const ratioDelta = costRatio !== null && previousRatio !== null
-                      ? costRatio - previousRatio
-                      : null;
-
-                    if (costRatio === null) {
-                      return null;
-                    }
-
-                    return (
-                      <div className="mt-3 rounded-md border border-orange-100 bg-orange-50 px-3 py-2 text-[11px] text-orange-700">
-                        <span className="font-semibold text-orange-800">Cost intensity:</span>{" "}
-                        {costRatio.toFixed(1)}% of income (FY25)
-                        {ratioDelta !== null && (
-                          <span className="ml-1 font-medium">
-                            ({ratioDelta >= 0 ? "↑" : "↓"} {Math.abs(ratioDelta).toFixed(1)} pts YoY)
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()
-                )}
               </div>
             );
           })}
@@ -636,43 +712,52 @@ export default function VisualizationsSection({ toFY }: VisualizationsSectionPro
           <h4 className="text-lg font-semibold text-indigo-900">
             Peer Compensation Comparison
           </h4>
+          {peerFinancialYear && (
+            <span className="ml-auto text-xs text-gray-400">{peerFinancialYear} · avg director total remuneration</span>
+          )}
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-indigo-600">
-                <th className="py-2 pr-4">Metric</th>
-                <th className="py-2 px-4 text-indigo-700">Company</th>
-                <th className="py-2 px-4 text-indigo-700">Peer 1</th>
-                <th className="py-2 px-4 text-indigo-700">Peer 2</th>
-                <th className="py-2 px-4 text-indigo-700">Peer 3</th>
-                <th className="py-2 pl-4 text-indigo-700">Insight</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {peerComparisonMetrics.map((row, idx) => (
-                <tr key={`${row.metric}-${idx}`} className="align-top">
-                  {(() => {
-                    const palette = peerMetricPalette[row.type];
-                    return (
-                      <>
-                        <td className="py-3 pr-4 font-semibold text-indigo-700">{row.metric}</td>
-                        <td className="py-3 px-4">
-                          <div className={`font-semibold ${palette.value}`}>{formatPeerValue(row.company, row.type)}</div>
-                          <div className="text-xs text-emerald-600">Baseline</div>
-                        </td>
-                        <td className="py-3 px-4 text-slate-600">{formatPeerValue(row.peer1, row.type)}</td>
-                        <td className="py-3 px-4 text-slate-600">{formatPeerValue(row.peer2, row.type)}</td>
-                        <td className="py-3 px-4 text-slate-600">{formatPeerValue(row.peer3, row.type)}</td>
-                        <td className="py-3 pl-4 text-xs text-indigo-600 w-48">{row.note}</td>
-                      </>
-                    );
-                  })()}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {peerBars.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg">
+            Peer compensation data is not available for this company.
+          </div>
+        ) : (() => {
+          const maxComp = Math.max(...peerBars.map(b => b.avg_compensation));
+          return (
+            <div className="space-y-3">
+              {peerBars.map((bar) => {
+                const pct = maxComp > 0 ? (bar.avg_compensation / maxComp) * 100 : 0;
+                const label = formatCurrencyCompact(bar.avg_compensation);
+                return (
+                  <div key={bar.name} className="flex items-center gap-3 group">
+                    <span
+                      className={`w-44 shrink-0 text-xs text-right truncate ${
+                        bar.is_subject ? "font-semibold text-indigo-700" : "text-gray-600"
+                      }`}
+                      title={bar.name}
+                    >
+                      {bar.name}
+                    </span>
+                    <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
+                      <div
+                        className={`h-full rounded transition-all duration-500 ${
+                          bar.is_subject ? "bg-indigo-500" : "bg-indigo-200"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`w-24 shrink-0 text-xs ${
+                        bar.is_subject ? "font-semibold text-indigo-700" : "text-gray-500"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

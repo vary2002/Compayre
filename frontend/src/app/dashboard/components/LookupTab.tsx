@@ -7,22 +7,12 @@ import { DirectorTable } from "@/components/tables";
 import { DirectorDetailsSection, VisualizationsSection } from "@/components/sections";
 import { formatCurrencyCompact } from "@/utils/currency";
 import FilterDropdown from "./FilterDropdown";
-import {
-  DirectorInfo,
-  companyInfo,
-  companyDataMap,
-  directorAllCompaniesData,
-} from "../data";
+import { DirectorInfo } from "../data";
+import { useCompaniesDropdown, useCompanyDashboardData } from "@/hooks/useDataApi";
+import { DATASET_LATEST_FY } from "@/lib/constants";
 
-const toFY = (year: number): string => `FY${year.toString().slice(-2)}`;
-
-const companyOptions = [
-  { id: 1, label: "Reliance Industries Ltd\nNSE: RELIANCE", value: "Reliance Industries Ltd" },
-  { id: 2, label: "Tata Consultancy Services\nNSE: TCS", value: "Tata Consultancy Services" },
-  { id: 3, label: "Infosys Ltd\nNSE: INFY", value: "Infosys Ltd" },
-  { id: 4, label: "HDFC Bank Ltd\nNSE: HDFCBANK", value: "HDFC Bank Ltd" },
-  { id: 5, label: "ICICI Bank Ltd\nNSE: ICICIBANK", value: "ICICI Bank Ltd" },
-];
+const toFY = (year: number | undefined | null): string =>
+  year != null ? `FY${year.toString().slice(-2)}` : "—";
 
 const parseCompensationValue = (value?: string) => {
   if (!value) {
@@ -50,6 +40,19 @@ const directorPiePalette = [
 
 
 export default function LookupTab() {
+  // API data
+  const { data: companiesList, loading: companiesLoading } = useCompaniesDropdown();
+
+  const companyOptions = useMemo(
+    () =>
+      (companiesList ?? []).map((c, idx) => ({
+        id: idx + 1,
+        label: c.company_name,
+        value: c.company_code,
+      })),
+    [companiesList],
+  );
+
   const [selectedCompany, setSelectedCompany] = useState<string | number | (string | number)[] | null>(null);
   const [nameFilter, setNameFilter] = useState<(string | number)[] | null>(null);
   const [dinFilter, setDinFilter] = useState<(string | number)[] | null>(null);
@@ -58,12 +61,21 @@ export default function LookupTab() {
   const [selectedDirector, setSelectedDirector] = useState<DirectorInfo | null>(null);
 
 
+  // Derive company_code from selectedCompany (it already IS the company_code)
+  const selectedCompanyCode = typeof selectedCompany === "string" ? selectedCompany : null;
+
+  // Label for display (company_name looked up from dropdown)
+  const selectedCompanyName = useMemo(() => {
+    if (!selectedCompanyCode || !companiesList) return selectedCompanyCode ?? "";
+    return companiesList.find(c => c.company_code === selectedCompanyCode)?.company_name ?? selectedCompanyCode;
+  }, [selectedCompanyCode, companiesList]);
+
+  // Dashboard data for selected company
+  const { data: dashboardData, loading: dashboardLoading } = useCompanyDashboardData(selectedCompanyCode);
+
   const selectedCompanyData: DirectorInfo[] = useMemo(() => {
-    if (!selectedCompany || typeof selectedCompany !== "string") {
-      return [];
-    }
-    return companyDataMap[selectedCompany] ?? [];
-  }, [selectedCompany]);
+    return dashboardData?.directorInfos ?? [];
+  }, [dashboardData]);
 
   // When company changes, close director details if director is not in the new company
   useEffect(() => {
@@ -235,7 +247,7 @@ export default function LookupTab() {
   return (
     <div className="mx-6 md:mx-12 lg:mx-16">
       {/* Company Selection, Profile and Directors Section */}
-      {selectedCompany && typeof selectedCompany === "string" && selectedCompanyData.length > 0 ? (
+      {selectedCompany && typeof selectedCompany === "string" && (dashboardLoading || selectedCompanyData.length > 0) ? (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mb-6">
           {/* Company Selection */}
           <div className="mb-6">
@@ -255,11 +267,11 @@ export default function LookupTab() {
           </div>
 
           {/* Company Profile */}
-          {companyInfo[selectedCompany] && (
+          {dashboardData?.companyInfo && (
             <div className="mb-6 pb-6 border-b border-gray-200">
               <CompanyInfoCard
-                companyInfo={companyInfo[selectedCompany]}
-                fiscalYear={directorRemunerationSummary?.fiscalYear ?? (latestCompanyYear ? toFY(latestCompanyYear) : toFY(2025))}
+                companyInfo={dashboardData.companyInfo}
+                fiscalYear={directorRemunerationSummary?.fiscalYear ?? (latestCompanyYear ? toFY(latestCompanyYear) : DATASET_LATEST_FY)}
                 remunerationData={directorRemunerationSummary?.chartData ?? []}
                 totalRemuneration={directorRemunerationSummary?.totalAmount ?? formatCurrencyCompact(0)}
               />
@@ -269,7 +281,7 @@ export default function LookupTab() {
           {/* Executive Directors List */}
           <div>
             <h3 className="mb-4 text-lg font-medium text-gray-600">
-              Executive Directors at {typeof selectedCompany === "string" ? selectedCompany : "Selected Company"}
+              Executive Directors at {selectedCompanyName || "Selected Company"}
             </h3>
 
             <DirectorTable
@@ -311,23 +323,35 @@ export default function LookupTab() {
       )}
 
       {/* Director Details Section */}
-      {selectedDirector && typeof selectedCompany === "string" && (
+      {selectedDirector && selectedCompanyCode && (
         <DirectorDetailsSection
           director={selectedDirector}
-          companyName={selectedCompany}
+          companyName={selectedCompanyName}
           companyData={selectedCompanyData}
           directorDetailsRef={directorDetailsRef}
           onClose={() => setSelectedDirector(null)}
           toFY={toFY}
-          otherCompanies={directorAllCompaniesData[selectedDirector.din]}
+          otherCompanies={undefined}
         />
       )}
 
+      {/* Loading indicator */}
+      {dashboardLoading && (
+        <div className="mt-6 text-sm text-gray-500">Loading company data…</div>
+      )}
+
       {/* Company Metrics/Visualizations Section */}
-      {selectedCompany && selectedCompanyData.length > 0 && (
+      {selectedCompanyCode && selectedCompanyData.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mt-12">
           <h2 className="mb-6 text-2xl font-bold text-gray-950">Company Metrics</h2>
-          <VisualizationsSection toFY={toFY} />
+          <VisualizationsSection
+              toFY={toFY}
+              companyDirectorRecords={selectedCompanyData}
+              companyMarketCap={dashboardData?.companyInfo?.marketCap}
+              numberOfEmployees={dashboardData?.companyInfo?.numberOfEmployees}
+              peerBars={dashboardData?.peerBars}
+              peerFinancialYear={dashboardData?.peerFinancialYear}
+            />
         </div>
       )}
     </div>

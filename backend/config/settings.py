@@ -82,7 +82,10 @@ DATABASES = {
         'HOST': config('DB_HOST', default=''),
         'PORT': config('DB_PORT', default=''),
         'ATOMIC_REQUESTS': True,
-        'CONN_MAX_AGE': 600,
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {
+            'timeout': 20,  # Wait up to 20s for SQLite write lock before raising
+        },
     }
 }
 

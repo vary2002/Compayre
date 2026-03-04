@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import UserActivityLog, Company, Director, DirectorRemuneration, CompanyFinancialTimeSeries, PeerComparison
+from .models import UserActivityLog, Company, Director, DirectorRemuneration, CompanyFinancials
 
 User = get_user_model()
 
@@ -246,112 +246,114 @@ class UserActivityLogSerializer(serializers.ModelSerializer):
 # --- Data Model Serializers ---
 
 class CompanySerializer(serializers.ModelSerializer):
-    """
-    Serializer for Company model.
-    """
     class Meta:
         model = Company
-        fields = ['company_id', 'name', 'sector', 'industry', 'index', 'employees', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = [
+            'id', 'company_code', 'company_name', 'bse_scrip_code',
+            'sector', 'industry', 'index_name', 'no_of_employees',
+            'salary_to_median_employee_pay',
+            'peer_1_comp', 'peer_2_comp', 'peer_3_comp', 'peer_4_comp', 'peer_5_comp',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class DirectorSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Director model.
-    """
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    
+    company_name = serializers.CharField(source='company.company_name', read_only=True)
+
     class Meta:
         model = Director
         fields = [
-            'director_id', 'name', 'company', 'company_name', 'designation', 'category',
-            'qualification', 'dob', 'promoter_status', 'gender', 'appointment_date',
-            'created_at', 'updated_at'
+            'id', 'director_code', 'company', 'company_name',
+            'director_name', 'din', 'designation', 'director_category',
+            'qualification', 'dob', 'promoter_status', 'role',
+            'appointment_date', 'gender', 'key_flag',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class DirectorRemunerationSerializer(serializers.ModelSerializer):
-    """
-    Serializer for DirectorRemuneration model.
-    """
-    director_name = serializers.CharField(source='director.name', read_only=True)
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    
+    director_name = serializers.CharField(source='director.director_name', read_only=True)
+    company_name = serializers.CharField(source='director.company.company_name', read_only=True)
+    # Director identity fields embedded for dashboard use
+    din = serializers.CharField(source='director.din', read_only=True)
+    director_code = serializers.CharField(source='director.director_code', read_only=True)
+    designation = serializers.CharField(source='director.designation', read_only=True)
+    director_category = serializers.CharField(source='director.director_category', read_only=True)
+    qualification = serializers.CharField(source='director.qualification', read_only=True)
+    dob = serializers.DateField(source='director.dob', read_only=True)
+    promoter_status = serializers.CharField(source='director.promoter_status', read_only=True)
+    gender = serializers.CharField(source='director.gender', read_only=True)
+    appointment_date = serializers.DateField(source='director.appointment_date', read_only=True)
+    director_role = serializers.CharField(source='director.role', read_only=True)
+    key_flag = serializers.BooleanField(source='director.key_flag', read_only=True)
+    # Company context — embedded so the director history endpoint works without a separate company fetch
+    sector = serializers.CharField(source='director.company.sector', read_only=True)
+    industry = serializers.CharField(source='director.company.industry', read_only=True)
+
     class Meta:
         model = DirectorRemuneration
         fields = [
-            'id', 'company', 'company_name', 'director', 'director_name', 'fy_end_date', 'fy_label',
-            'basic_salary', 'pf', 'perqs', 'bonus', 'pay_excl_esops', 'esops', 'total_remuneration',
-            'options_granted', 'discount', 'fair_value', 'aggregate_value', 'remuneration_status',
-            'comments', 'created_at', 'updated_at'
+            'id', 'director', 'director_name', 'company_name',
+            'din', 'director_code', 'designation', 'director_category',
+            'qualification', 'dob', 'promoter_status', 'gender',
+            'appointment_date', 'director_role', 'key_flag',
+            'sector', 'industry',
+            'financial_year',
+            'basic_salary', 'pf_retirement', 'perquisites_allowances',
+            'bonus_commission', 'pay_excl_esops', 'esops',
+            'total_remuneration', 'options_granted', 'discount',
+            'fair_value', 'aggregate_value', 'comments', 'remuneration_status',
+            'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class CompanyFinancialTimeSeriesSerializer(serializers.ModelSerializer):
-    """
-    Serializer for CompanyFinancialTimeSeries model.
-    """
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    
+class CompanyFinancialsSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.company_name', read_only=True)
+
     class Meta:
-        model = CompanyFinancialTimeSeries
+        model = CompanyFinancials
         fields = [
-            'id', 'company', 'company_name', 'fy_end_date', 'fy_label',
-            'total_income', 'pat', 'roa', 'employee_cost', 'mcap', 'employees',
-            'created_at', 'updated_at'
+            'id', 'company', 'company_name', 'financial_year',
+            'total_income', 'pat', 'roa', 'employee_cost', 'mcap',
+            'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class PeerComparisonSerializer(serializers.ModelSerializer):
-    """
-    Serializer for PeerComparison model.
-    """
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    peer_company_name = serializers.CharField(source='peer_company.name', read_only=True)
-    
-    class Meta:
-        model = PeerComparison
-        fields = [
-            'id', 'company', 'company_name', 'peer_company', 'peer_company_name',
-            'peer_position', 'salary_to_median_emp_pay', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-# Nested serializers for detailed company information
+# Nested / detailed serializers
 
 class CompanyDetailedSerializer(serializers.ModelSerializer):
-    """
-    Detailed serializer for Company with related data.
-    """
-    financial_timeseries = CompanyFinancialTimeSeriesSerializer(many=True, read_only=True)
+    financials = CompanyFinancialsSerializer(many=True, read_only=True)
     directors = DirectorSerializer(many=True, read_only=True)
-    peer_comparisons = PeerComparisonSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = Company
         fields = [
-            'company_id', 'name', 'sector', 'industry', 'index', 'employees',
-            'financial_timeseries', 'directors', 'peer_comparisons', 'created_at', 'updated_at'
+            'id', 'company_code', 'company_name', 'bse_scrip_code',
+            'sector', 'industry', 'index_name', 'no_of_employees',
+            'salary_to_median_employee_pay',
+            'peer_1_comp', 'peer_2_comp', 'peer_3_comp', 'peer_4_comp', 'peer_5_comp',
+            'financials', 'directors',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class DirectorDetailedSerializer(serializers.ModelSerializer):
-    """
-    Detailed serializer for Director with remuneration data.
-    """
     remunerations = DirectorRemunerationSerializer(many=True, read_only=True)
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    
+    company_name = serializers.CharField(source='company.company_name', read_only=True)
+
     class Meta:
         model = Director
         fields = [
-            'director_id', 'name', 'company', 'company_name', 'designation', 'category',
-            'qualification', 'dob', 'promoter_status', 'gender', 'appointment_date',
-            'remunerations', 'created_at', 'updated_at'
+            'id', 'director_code', 'company', 'company_name',
+            'director_name', 'din', 'designation', 'director_category',
+            'qualification', 'dob', 'promoter_status', 'role',
+            'appointment_date', 'gender', 'key_flag',
+            'remunerations',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
