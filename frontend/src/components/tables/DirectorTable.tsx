@@ -63,7 +63,7 @@ export default function DirectorTable({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div className="bg-white border border-gray-200">
       <table className="w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>
@@ -100,7 +100,7 @@ export default function DirectorTable({
           ) : (
             data.map((director, index) => (
               <tr key={index} className="hover:bg-gray-50">
-                <td 
+                <td
                   className="px-6 py-4 text-sm font-medium cursor-pointer hover:text-blue-800"
                   onClick={() => onDirectorClick(director.name, director.din)}
                 >

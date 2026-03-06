@@ -63,7 +63,7 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
 
     setSelectedItems(newSelected);
     onSelectionChange(newSelected.length > 0 ? newSelected : null);
-    
+
     // Track the selection
     if (selectionType && newSelected.length > 0) {
       apiClient.logSelectionActivity(selectionType, newSelected);
@@ -103,7 +103,7 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
 
       {isOpen && (
         <div
-          className="fixed z-[100] mt-1 w-64 rounded-lg border border-gray-300 bg-white shadow-lg"
+          className="fixed z-[100] mt-1 w-64 border border-gray-300 bg-white"
           style={{
             top: dropdownRef.current ? `${dropdownRef.current.getBoundingClientRect().bottom + 4}px` : "0",
             left: dropdownRef.current ? `${dropdownRef.current.getBoundingClientRect().left}px` : "0",
@@ -115,7 +115,7 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
               placeholder="Search..."
               value={searchTerm}
               onChange={event => setSearchTerm(event.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               onClick={event => event.stopPropagation()}
             />
           </div>
@@ -123,14 +123,14 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
           <div className="flex gap-2 border-b border-gray-200 p-2">
             <button
               onClick={handleSelectAll}
-              className="flex-1 rounded bg-blue-50 px-3 py-1.5 text-xs text-blue-600 transition-colors hover:bg-blue-100"
+              className="flex-1 bg-blue-50 px-3 py-1.5 text-xs text-blue-600 transition-colors hover:bg-blue-100 border border-blue-100"
               type="button"
             >
               {selectedItems.length === filteredOptions.length && filteredOptions.length > 0 ? "Deselect All" : "Select All"}
             </button>
             <button
               onClick={handleReset}
-              className="flex-1 rounded bg-gray-100 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-200"
+              className="flex-1 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-200 border border-gray-200"
               type="button"
             >
               Reset
@@ -147,9 +147,8 @@ export default function FilterDropdown({ options, onSelectionChange, hasActiveFi
                   <button
                     key={option}
                     onClick={() => handleToggleItem(option)}
-                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-blue-50 ${
-                      isSelected ? "bg-blue-100 text-blue-900" : "text-gray-900"
-                    }`}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-blue-50 ${isSelected ? "bg-blue-100 text-blue-900" : "text-gray-900"
+                      }`}
                     type="button"
                   >
                     <input

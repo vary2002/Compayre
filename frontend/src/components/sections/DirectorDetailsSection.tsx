@@ -37,6 +37,7 @@ interface DirectorInfo {
   optionsAggregateValue?: string;
   retirementBenefits?: string;
   optionsGranted?: number;
+  payExcludingEsops?: string;
 }
 
 interface CompanyHistory {
@@ -73,9 +74,9 @@ export default function DirectorDetailsSection({
   // Guard: If no records, show a message
   if (!records.length) {
     return (
-      <div ref={directorDetailsRef} className="mt-8 bg-linear-to-br from-slate-50 via-white to-white border border-slate-200 ring-1 ring-inset ring-slate-100 rounded-2xl p-6 shadow-lg">
+      <div ref={directorDetailsRef} className="mt-8 border border-gray-200 bg-white p-6">
         <div className="mb-6">
-          <div className="relative flex justify-between items-start rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+          <div className="relative flex justify-between items-start border-b border-gray-200 pb-4">
             <div className="flex flex-col gap-2 pt-1">
               <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
                 <span>Director detail</span>
@@ -100,10 +101,10 @@ export default function DirectorDetailsSection({
   return (
     <div
       ref={directorDetailsRef}
-      className="mt-8 bg-linear-to-br from-slate-50 via-white to-white border border-slate-200 ring-1 ring-inset ring-slate-100 rounded-2xl p-6 shadow-lg"
+      className="mt-8 border-t-2 border-gray-800 bg-white pt-6"
     >
       <div className="mb-6">
-        <div className="relative flex justify-between items-start rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <div className="relative flex justify-between items-start border-b border-gray-200 bg-white pb-4">
           <div className="absolute inset-x-0 top-0 h-1 " aria-hidden="true"></div>
           <div className="flex flex-col gap-2 pt-1">
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
@@ -133,7 +134,7 @@ export default function DirectorDetailsSection({
             At {companyName}
           </h4>
         </div>
-        <div className="rounded-xl overflow-hidden border border-sky-100 ring-1 ring-inset ring-sky-50 bg-white">
+        <div className="border border-sky-100 bg-white">
           {/* Compensation Summary */}
           {(() => {
             const sortedRecords = companyData
@@ -141,7 +142,7 @@ export default function DirectorDetailsSection({
               .sort((a, b) => a.year - b.year);
 
             const compValues = sortedRecords.map(r => parseCurrencyValue(r.compensation));
-            
+
             // Calculate CAGR
             const cagrValue = computeCAGR(
               sortedRecords.map(record => ({
@@ -160,7 +161,7 @@ export default function DirectorDetailsSection({
             const growthLabel = totalGrowthVal === null
               ? "N/A"
               : `${totalGrowthVal >= 0 ? "+" : ""}${totalGrowthVal.toFixed(1)}%`;
-            
+
             return (
               <div className="p-4 bg-sky-50/60 border-t border-sky-100">
                 <h5 className="text-sm font-semibold text-sky-800 mb-3">Compensation Summary</h5>
@@ -192,38 +193,38 @@ export default function DirectorDetailsSection({
                   const prevComp = parseCurrencyValue(records[1].compensation);
                   yoyGrowth = ((currentComp - prevComp) / prevComp * 100).toFixed(1) + '%';
                 }
-                
+
                 // Calculate variable pay ratio: (Bonus/Commission + ESOP) / Total Remuneration
                 const bonus = parseCurrencyValue(latestRecord.bonus);
                 const esop = parseCurrencyValue(latestRecord.esopMarketValue);
                 const totalComp = parseCurrencyValue(latestRecord.compensation);
                 const variablePay = bonus + esop;
                 const variableRatio = totalComp > 0 ? ((variablePay / totalComp) * 100).toFixed(0) + '%' : 'N/A';
-                
+
                 // Tenure calculation
                 const tenure = records.length;
-                
+
                 return (
                   <>
-                    <MetricCard 
-                      label="YoY Growth" 
-                      value={yoyGrowth} 
+                    <MetricCard
+                      label="YoY Growth"
+                      value={yoyGrowth}
                       subtitle="Compensation"
                       labelColor="text-emerald-600"
                       valueColor="text-emerald-700"
                       subtitleColor="text-emerald-500"
                     />
-                    <MetricCard 
-                      label="Variable Pay" 
-                      value={variableRatio} 
+                    <MetricCard
+                      label="Variable Pay"
+                      value={variableRatio}
                       subtitle="of Total Remuneration"
                       labelColor="text-amber-600"
                       valueColor="text-amber-700"
                       subtitleColor="text-amber-500"
                     />
-                    <MetricCard 
-                      label="Tenure" 
-                      value={`${tenure} ${tenure === 1 ? 'Year' : 'Years'}`} 
+                    <MetricCard
+                      label="Tenure"
+                      value={`${tenure} ${tenure === 1 ? 'Year' : 'Years'}`}
                       subtitle="At Company"
                       labelColor="text-indigo-600"
                       valueColor="text-indigo-700"
@@ -233,20 +234,20 @@ export default function DirectorDetailsSection({
                 );
               })()}
             </div>
-            
+
           </div>
 
           {/* Detailed Breakdowns and Visualizations */}
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* ESOP Market Value (Improved UI) */}
-            <div className="border border-violet-100 ring-1 ring-inset ring-violet-50 rounded-xl p-6 bg-white/95">
+            <div className="border border-gray-200 p-6 bg-white">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                 <div>
                   <h6 className="text-base font-bold text-violet-800 mb-1">ESOP Market Value</h6>
                   <div className="text-xs text-gray-500">(Last 5 Years)</div>
                 </div>
                 <div className="bg-teal-600 px-5 py-2 rounded-lg shadow text-white text-lg font-bold flex items-center gap-2">
-                  <svg className="w-5 h-5 text-white/80 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 1.343-3 3 0 1.657 1.343 3 3 3s3-1.343 3-3c0-1.657-1.343-3-3-3zm0 13c-4.418 0-8-3.582-8-8 0-4.418 3.582-8 8-8s8 3.582 8 8c0 4.418-3.582 8-8 8z"/></svg>
+                  <svg className="w-5 h-5 text-white/80 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 1.343-3 3 0 1.657 1.343 3 3 3s3-1.343 3-3c0-1.657-1.343-3-3-3zm0 13c-4.418 0-8-3.582-8-8 0-4.418 3.582-8 8-8s8 3.582 8 8c0 4.418-3.582 8-8 8z" /></svg>
                   {formatCurrencyCompact(companyData.filter(d => d.din === director.din).reduce((sum, r) => sum + parseCurrencyValue(r.esopMarketValue), 0))}
                   <span className="text-xs font-medium text-white/80">total market value</span>
                 </div>
@@ -268,19 +269,28 @@ export default function DirectorDetailsSection({
                     <table className="min-w-full text-xs text-left border-separate border-spacing-y-1">
                       <thead>
                         <tr className="text-gray-700">
-                          <th className="px-2 py-1">Year</th>
-                          <th className="px-2 py-1">ESOP Income</th>
-                          <th className="px-2 py-1">Options Granted</th>
+                          <th className="px-2 py-1 border-b border-gray-200">Year</th>
+                          <th className="px-2 py-1 border-b border-gray-200">ESOP Income</th>
+                          <th className="px-2 py-1 border-b border-gray-200">Options Granted</th>
+                          <th className="px-2 py-1 border-b border-gray-200 font-semibold text-indigo-800">Value per Option</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {sortedRecords.map((record, idx) => (
-                          <tr key={idx} className="bg-violet-50/60 hover:bg-violet-100/80 rounded">
-                            <td className="px-2 py-1 font-semibold text-violet-800">{toFY(record.year)}</td>
-                            <td className="px-2 py-1 text-teal-700 font-bold">{formatCurrencyCompact(parseCurrencyValue(record.esopMarketValue))}</td>
-                            <td className="px-2 py-1 text-purple-700">{record.optionsGranted ? record.optionsGranted.toLocaleString() : '—'}</td>
-                          </tr>
-                        ))}
+                        {sortedRecords.map((record, idx) => {
+                          const income = parseCurrencyValue(record.esopMarketValue);
+                          const granted = record.optionsGranted || 0;
+                          const valPerOption = granted > 0 ? (income / granted) : 0;
+                          return (
+                            <tr key={idx} className="hover:bg-indigo-50/50 transition-colors">
+                              <td className="px-2 py-2 font-semibold text-indigo-900">{toFY(record.year)}</td>
+                              <td className="px-2 py-2 text-indigo-800 font-bold">{formatCurrencyCompact(income)}</td>
+                              <td className="px-2 py-2 text-indigo-700">{granted ? granted.toLocaleString() : '—'}</td>
+                              <td className="px-2 py-2 text-indigo-900 font-bold bg-indigo-50/50">
+                                {valPerOption > 0 ? `₹${valPerOption.toFixed(0)}` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                     <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -297,7 +307,7 @@ export default function DirectorDetailsSection({
             </div>
 
             {/* Compensation Components Breakdown */}
-            <div className="border border-sky-100 ring-1 ring-inset ring-sky-50 rounded-xl p-6 bg-white shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="border border-gray-200 p-6 bg-white">
               <h6 className="text-base font-bold text-slate-800 mb-4">
                 Compensation Components ({toFY(latestRecord.year)})
               </h6>
@@ -308,7 +318,7 @@ export default function DirectorDetailsSection({
                   { label: 'Perquisites', amountRupees: parseCurrencyValue(latestRecord.perquisites), color: '#F59E0B' },
                   { label: 'Retirement', amountRupees: parseCurrencyValue(latestRecord.retirementBenefits), color: '#8B5CF6' },
                 ].filter(c => c.amountRupees > 0);
-                
+
                 if (components.length === 0) {
                   return (
                     <div className="text-center py-8 text-gray-500 text-sm">
@@ -316,20 +326,20 @@ export default function DirectorDetailsSection({
                     </div>
                   );
                 }
-                
+
                 const total = components.reduce((sum, c) => sum + c.amountRupees, 0);
-                
+
                 const pieData = components.map(component => ({
                   label: component.label,
                   value: total === 0 ? 0 : (component.amountRupees / total) * 100,
                   amount: formatCurrencyCompact(component.amountRupees),
                   color: component.color,
                 }));
-                
+
                 return (
-                  <PieChart 
-                    data={pieData} 
-                    totalAmount={formatCurrencyCompact(total)} 
+                  <PieChart
+                    data={pieData}
+                    totalAmount={formatCurrencyCompact(total)}
                     size="md"
                     showLegend={true}
                   />
@@ -356,16 +366,78 @@ export default function DirectorDetailsSection({
                       : parseCurrencyValue(r.payExcludingEsops) || 0;
                     return {
                       year: r.year,
-                      salary:      hasComponents ? salary      : 0,
-                      retirement:  hasComponents ? retirement  : 0,
+                      salary: hasComponents ? salary : 0,
+                      retirement: hasComponents ? retirement : 0,
                       perquisites: hasComponents ? perquisites : 0,
-                      bonus:       hasComponents ? bonus       : 0,
+                      bonus: hasComponents ? bonus : 0,
                       payExclEsops: cashFallback,
                       esops: r.esopsExercised || 0,
                     };
                   });
                 return <StackedBarChart data={stackedData} />;
               })()}
+            </div>
+
+            {/* Fixed vs Variable Mix Evolution */}
+            <div className="border border-gray-200 p-6 bg-white lg:col-span-2">
+              <h6 className="text-base font-bold text-slate-800 mb-4">
+                Fixed vs Variable Pay Evolution
+              </h6>
+              <div className="space-y-4">
+                {(() => {
+                  const sortedRecords = companyData
+                    .filter(d => d.din === director.din)
+                    .sort((a, b) => a.year - b.year);
+
+                  return sortedRecords.map(r => {
+                    const fixed = parseCurrencyValue(r.salary) + parseCurrencyValue(r.retirementBenefits);
+                    const variable = parseCurrencyValue(r.perquisites) + parseCurrencyValue(r.bonus) + parseCurrencyValue(r.esopMarketValue);
+                    const total = fixed + variable || 1; // avoid division by zero
+
+                    const fixedPct = (fixed / total) * 100;
+                    const variablePct = (variable / total) * 100;
+
+                    if (fixed + variable === 0) return null;
+
+                    return (
+                      <div key={r.year} className="flex items-center gap-4 text-sm group">
+                        <div className="w-16 font-semibold text-gray-700">{toFY(r.year)}</div>
+                        <div className="flex-1 h-6 flex rounded-sm overflow-hidden bg-gray-100">
+                          <div
+                            className="bg-blue-600 transition-all duration-500 flex items-center justify-start px-2 text-white text-xs font-bold"
+                            style={{ width: `${fixedPct}%` }}
+                            title={`Fixed: ${formatCurrencyCompact(fixed)}`}
+                          >
+                            {fixedPct > 10 && `${fixedPct.toFixed(0)}%`}
+                          </div>
+                          <div
+                            className="bg-sky-400 transition-all duration-500 flex items-center justify-end px-2 text-sky-950 text-xs font-bold"
+                            style={{ width: `${variablePct}%` }}
+                            title={`Variable: ${formatCurrencyCompact(variable)}`}
+                          >
+                            {variablePct > 10 && `${variablePct.toFixed(0)}%`}
+                          </div>
+                        </div>
+                        <div className="w-32 text-right text-xs text-gray-500">
+                          <span className="text-blue-700 font-semibold">{formatCurrencyCompact(fixed)}</span>
+                          {' / '}
+                          <span className="text-sky-600 font-semibold">{formatCurrencyCompact(variable)}</span>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-600">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+                  Fixed (Salary + PF)
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-sky-400"></span>
+                  Variable (Bonus + Perqs + ESOP)
+                </div>
+              </div>
             </div>
 
             {/* Tenure Timeline */}

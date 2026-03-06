@@ -19,7 +19,7 @@ export default function MetricCard({
   subtitleColor = "text-gray-500",
 }: MetricCardProps) {
   return (
-    <div className="bg-white rounded-lg p-3 border border-gray-200">
+    <div className="bg-white p-3 border border-gray-200">
       <div className={`text-xs mb-1 font-semibold ${labelColor}`}>{label}</div>
       <div className={`text-xl font-semibold ${valueColor}`}>{value}</div>
       {subtitle && <div className={`text-xs mt-1 ${subtitleColor}`}>{subtitle}</div>}

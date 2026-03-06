@@ -61,7 +61,7 @@ export default function CompanyInfoCard({
   })();
 
   return (
-    <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+    <div className="mb-6 bg-white border border-gray-200 p-6">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Company Info */}
         <div className="lg:w-80">

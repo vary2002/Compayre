@@ -44,7 +44,7 @@ const parseCompensation = (value?: string) => {
 
 export default function OtherCompaniesSection({ companyDataList, currentCompany, embedded = false }: OtherCompaniesSectionProps) {
   const filteredCompanies = companyDataList.filter(cd => cd.company !== currentCompany);
-  
+
   if (filteredCompanies.length === 0) {
     return null;
   }
@@ -65,9 +65,9 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
         {filteredCompanies.map((companyData, companyIdx) => (
           <div
             key={companyIdx}
-            className={`${embedded ? "border border-slate-200" : "border-2 border-slate-300"} bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300`}
+            className={`${embedded ? "border-t border-gray-200" : "border-2 border-gray-300"} bg-white overflow-hidden my-4`}
           >
-            <div className="bg-gradient-to-r from-slate-100 to-slate-200 px-5 py-3">
+            <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
               <h5 className="font-bold text-slate-800">{companyData.company}</h5>
             </div>
             <div className="overflow-x-auto">
@@ -90,7 +90,7 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
                 </tbody>
               </table>
             </div>
-            
+
             {/* Compensation Summary */}
             {(() => {
               const records = [...companyData.data].sort((a, b) => a.year - b.year);
@@ -98,7 +98,7 @@ export default function OtherCompaniesSection({ companyDataList, currentCompany,
                 return null;
               }
               const compValues = records.map(r => parseCompensation(r.compensation));
-              
+
               // Calculate CAGR instead of average
               const cagrValue = computeCAGR(
                 records.map(record => ({

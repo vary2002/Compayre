@@ -97,7 +97,7 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
         { year: DATASET_LATEST_YEAR - 3, amountRupees: 2.8 * CRORE_IN_RUPEES, heightPx: 130 },
         { year: DATASET_LATEST_YEAR - 2, amountRupees: 2.6 * CRORE_IN_RUPEES, heightPx: 120 },
         { year: DATASET_LATEST_YEAR - 1, amountRupees: 3.5 * CRORE_IN_RUPEES, heightPx: 160 },
-        { year: DATASET_LATEST_YEAR,     amountRupees: 3.8 * CRORE_IN_RUPEES, heightPx: 180 },
+        { year: DATASET_LATEST_YEAR, amountRupees: 3.8 * CRORE_IN_RUPEES, heightPx: 180 },
       ];
     }
     const maxAmount = Math.max(...entries.map(e => e.amountRupees));
@@ -191,6 +191,15 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
     const compYoY = prevAvgComp > 0 ? ((avgComp - prevAvgComp) / prevAvgComp) * 100 : null;
     const medianRatio = latestRecords.find(r => r.salaryToMedianEmployeeRatio)?.salaryToMedianEmployeeRatio ?? null;
     const marketCapRaw = parseCrToRupees(companyMarketCap);
+
+    // Advanced Financial Metrics
+    const totalDirectorComp = latestRecords.reduce((s, r) => s + parseCompensation(r.compensation), 0);
+    const totalPAT = parseCrToRupees(latestRecords[0]?.profitAfterTax);
+    const totalEmpCost = parseCrToRupees(latestRecords[0]?.employeeCost);
+
+    const payAsPctPAT = totalPAT > 0 ? ((totalDirectorComp / totalPAT) * 100).toFixed(2) : null;
+    const payAsPctEmpCost = totalEmpCost > 0 ? ((totalDirectorComp / totalEmpCost) * 100).toFixed(2) : null;
+
     return [
       {
         label: "Avg Remuneration",
@@ -207,6 +216,22 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
         valueColor: "text-amber-700",
         labelColor: "text-amber-600",
         subtitleColor: "text-amber-500",
+      },
+      {
+        label: "Pay as % of PAT",
+        value: payAsPctPAT ? `${payAsPctPAT}%` : "—",
+        subtitle: "Total Board Pay vs Net Profit",
+        valueColor: "text-indigo-900",
+        labelColor: "text-indigo-800",
+        subtitleColor: "text-indigo-600/80",
+      },
+      {
+        label: "Pay vs Employee Cost",
+        value: payAsPctEmpCost ? `${payAsPctEmpCost}%` : "—",
+        subtitle: "Board Pay as % of Total Workforce",
+        valueColor: "text-indigo-900",
+        labelColor: "text-indigo-800",
+        subtitleColor: "text-indigo-600/80",
       },
       {
         label: "Market Cap",
@@ -336,9 +361,9 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
         peak: peakIsLatest
           ? null
           : {
-              label: `${peakYear} · ${formatCurrencyCompact(peakValue)}`,
-              helper: "Peak value",
-            },
+            label: `${peakYear} · ${formatCurrencyCompact(peakValue)}`,
+            helper: "Peak value",
+          },
         isPeakLatest: peakIsLatest,
       };
     }
@@ -368,17 +393,41 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
       peak: peakIsLatest
         ? null
         : {
-            label: `${peakYear} · ${formatPerformanceValue(peakValue, "percentage")}`,
-            helper: "Peak value",
-          },
+          label: `${peakYear} · ${formatPerformanceValue(peakValue, "percentage")}`,
+          helper: "Peak value",
+        },
       isPeakLatest: peakIsLatest,
     };
   };
 
+  // --- Pay for Performance Alignment ---
+  const payForPerformanceData = useMemo(() => {
+    const patSeries = performanceSeries.find(s => s.title === "PAT");
+    if (!patSeries || remunerationTrend.length < 2) return [];
+
+    const result = [];
+    for (let i = 1; i < remunerationTrend.length; i++) {
+      const prevRem = remunerationTrend[i - 1].amountRupees;
+      const currRem = remunerationTrend[i].amountRupees;
+      const remYoY = prevRem > 0 ? ((currRem - prevRem) / prevRem) * 100 : 0;
+
+      const patYoY = patSeries.values[i - 1] !== undefined && patSeries.values[i - 1] !== 0
+        ? ((patSeries.values[i] - patSeries.values[i - 1]) / Math.abs(patSeries.values[i - 1])) * 100
+        : 0;
+
+      result.push({
+        year: remunerationTrend[i].year,
+        remYoY,
+        patYoY,
+      });
+    }
+    return result;
+  }, [remunerationTrend, performanceSeries]);
+
   return (
     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Total Remuneration Trend */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+      <div className="border border-gray-200 bg-white p-6">
         <h4 className="text-lg font-medium text-gray-600 mb-4">
           Executive Director Remuneration Trend (5 Years)
         </h4>
@@ -443,25 +492,81 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
 
 
       {/* Remuneration Components Breakdown */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+      <div className="border border-gray-200 bg-white p-6">
         <h4 className="text-lg font-medium text-gray-600 mb-4">
           Remuneration Components ({toFY(latestDisplayYear)})
         </h4>
-        <PieChart 
+        <PieChart
           data={remunerationComponents.map(component => ({
             label: component.label,
             value: component.share,
             amount: formatCurrencyCompact(component.amountRupees),
             color: component.color,
           }))}
-          totalAmount={formatCurrencyCompact(totalRemunerationAmount)} 
+          totalAmount={formatCurrencyCompact(totalRemunerationAmount)}
           size="lg"
           showLegend={true}
         />
       </div>
 
+      {/* Pay for Performance Alignment */}
+      {payForPerformanceData.length > 0 && (
+        <div className="border border-gray-200 bg-white p-6 lg:col-span-2">
+          <div className="flex items-center gap-2 mb-6">
+            <span className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-800 bg-rose-100 rounded-full">
+              Alignment
+            </span>
+            <h4 className="text-lg font-semibold text-gray-900">
+              Pay-for-Performance (YoY Growth)
+            </h4>
+            <span className="ml-auto text-xs text-gray-500">Comparing Director Pay vs Company Net Profit</span>
+          </div>
+
+          <div className="space-y-4">
+            {payForPerformanceData.map((data) => {
+              const maxAbs = Math.max(20, ...payForPerformanceData.flatMap(d => [Math.abs(d.remYoY), Math.abs(d.patYoY)]));
+              const remWidth = Math.min((Math.abs(data.remYoY) / maxAbs) * 100, 100);
+              const patWidth = Math.min((Math.abs(data.patYoY) / maxAbs) * 100, 100);
+
+              const remColor = data.remYoY >= 0 ? "bg-rose-300" : "bg-rose-200";
+              const patColor = data.patYoY >= 0 ? "bg-emerald-300" : "bg-emerald-200";
+
+              return (
+                <div key={data.year} className="flex items-center gap-4 text-sm group">
+                  <div className="w-16 font-semibold text-gray-700 text-right">{toFY(data.year)}</div>
+
+                  <div className="flex-1 space-y-2 py-2 border-l-2 border-gray-200 pl-4">
+                    {/* PAT */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-24 text-xs text-gray-500 font-medium">Net Profit (PAT)</div>
+                      <div className="flex-1 h-5 bg-gray-50 rounded-sm flex items-center overflow-hidden">
+                        <div className={`h-full ${patColor} transition-all duration-500`} style={{ width: `${patWidth}%` }} />
+                      </div>
+                      <div className={`w-16 text-right text-xs font-bold ${data.patYoY >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        {data.patYoY > 0 ? '+' : ''}{data.patYoY.toFixed(1)}%
+                      </div>
+                    </div>
+
+                    {/* Remuneration */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-24 text-xs text-gray-500 font-medium">Remuneration</div>
+                      <div className="flex-1 h-5 bg-gray-50 rounded-sm flex items-center overflow-hidden">
+                        <div className={`h-full ${remColor} transition-all duration-500`} style={{ width: `${remWidth}%` }} />
+                      </div>
+                      <div className={`w-16 text-right text-xs font-bold ${data.remYoY >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {data.remYoY > 0 ? '+' : ''}{data.remYoY.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Key Company Metrics */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm lg:col-span-2">
+      <div className="border border-gray-200 bg-white p-6 lg:col-span-2">
         <h4 className="text-lg font-medium text-gray-600 mb-4">
           Key Company Metrics (5 Years)
         </h4>
@@ -499,7 +604,7 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
             return (
               <div
                 key={series.title}
-                className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 shadow-sm hover:shadow-md transition-shadow"
+                className="border border-gray-200 bg-gray-50 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -679,7 +784,7 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
       </div>
 
       {/* Company Snapshot */}
-      <div className="bg-white border border-sky-100 ring-1 ring-inset ring-sky-50 rounded-lg p-6 shadow-sm lg:col-span-2">
+      <div className="border border-gray-200 bg-white p-6 lg:col-span-2">
         <div className="flex items-center gap-2 mb-4">
           <span className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800 bg-sky-100 rounded-full">
             Company lens
@@ -688,7 +793,7 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
             Company Snapshot
           </h4>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           {snapshotMetrics.map(({ label, value, subtitle, valueColor, labelColor, subtitleColor }) => (
             <MetricCard
               key={label}
@@ -704,7 +809,7 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
       </div>
 
       {/* Peer Compensation Comparison */}
-      <div className="bg-white border border-indigo-100 ring-1 ring-inset ring-indigo-50 rounded-lg p-6 shadow-sm lg:col-span-2">
+      <div className="border border-gray-200 bg-white p-6 lg:col-span-2">
         <div className="flex items-center gap-2 mb-4">
           <span className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-800 bg-indigo-100 rounded-full">
             Peer lens
@@ -722,39 +827,49 @@ export default function VisualizationsSection({ toFY, companyDirectorRecords = [
           </div>
         ) : (() => {
           const maxComp = Math.max(...peerBars.map(b => b.avg_compensation));
+          const allComps = peerBars.map(b => b.avg_compensation).sort((a, b) => a - b);
+          const subjectBar = peerBars.find(b => b.is_subject);
+          const subjectRank = subjectBar ? allComps.indexOf(subjectBar.avg_compensation) + 1 : 0;
+          const percentile = allComps.length > 1 && subjectBar ? Math.round(((subjectRank - 1) / (allComps.length - 1)) * 100) : null;
+
           return (
-            <div className="space-y-3">
-              {peerBars.map((bar) => {
-                const pct = maxComp > 0 ? (bar.avg_compensation / maxComp) * 100 : 0;
-                const label = formatCurrencyCompact(bar.avg_compensation);
-                return (
-                  <div key={bar.name} className="flex items-center gap-3 group">
-                    <span
-                      className={`w-44 shrink-0 text-xs text-right truncate ${
-                        bar.is_subject ? "font-semibold text-indigo-700" : "text-gray-600"
-                      }`}
-                      title={bar.name}
-                    >
-                      {bar.name}
-                    </span>
-                    <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
-                      <div
-                        className={`h-full rounded transition-all duration-500 ${
-                          bar.is_subject ? "bg-indigo-500" : "bg-indigo-200"
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
+            <div className="space-y-4">
+              {percentile !== null && (
+                <div className="bg-indigo-50 border border-indigo-100 p-3 text-sm text-indigo-900 flex items-center gap-2">
+                  <strong className="font-semibold text-indigo-700">{percentile}th Percentile</strong>
+                  <span>Director remuneration ranks at the {percentile}th percentile relative to the peer group.</span>
+                </div>
+              )}
+              <div className="space-y-3 mt-4">
+                {peerBars.map((bar) => {
+                  const pct = maxComp > 0 ? (bar.avg_compensation / maxComp) * 100 : 0;
+                  const label = formatCurrencyCompact(bar.avg_compensation);
+                  return (
+                    <div key={bar.name} className="flex items-center gap-3 group">
+                      <span
+                        className={`w-44 shrink-0 text-xs text-right truncate ${bar.is_subject ? "font-semibold text-indigo-900" : "text-gray-700"
+                          }`}
+                        title={bar.name}
+                      >
+                        {bar.name}
+                      </span>
+                      <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
+                        <div
+                          className={`h-full rounded transition-all duration-500 ${bar.is_subject ? "bg-indigo-600" : "bg-indigo-300"
+                            }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`w-24 shrink-0 text-xs ${bar.is_subject ? "font-semibold text-indigo-900" : "text-gray-600"
+                          }`}
+                      >
+                        {label}
+                      </span>
                     </div>
-                    <span
-                      className={`w-24 shrink-0 text-xs ${
-                        bar.is_subject ? "font-semibold text-indigo-700" : "text-gray-500"
-                      }`}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           );
         })()}

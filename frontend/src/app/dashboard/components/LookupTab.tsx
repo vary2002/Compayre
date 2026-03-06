@@ -245,13 +245,13 @@ export default function LookupTab() {
     setCompensationSort(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
   };
   return (
-    <div className="mx-6 md:mx-12 lg:mx-16">
+    <div className="mx-4 md:mx-8 lg:mx-12 font-sans">
       {/* Company Selection, Profile and Directors Section */}
       {selectedCompany && typeof selectedCompany === "string" && (dashboardLoading || selectedCompanyData.length > 0) ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mb-6">
+        <div className="mb-8">
           {/* Company Selection */}
-          <div className="mb-6">
-            <label className="mb-3 block text-xl font-bold text-gray-950">Select Company</label>
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <label className="mb-2 block text-sm font-semibold text-gray-700 uppercase tracking-wider">Select Company</label>
             <div className="max-w-md">
               <Dropdown
                 options={companyOptions}
@@ -280,8 +280,8 @@ export default function LookupTab() {
 
           {/* Executive Directors List */}
           <div>
-            <h3 className="mb-4 text-lg font-medium text-gray-600">
-              Executive Directors at {selectedCompanyName || "Selected Company"}
+            <h3 className="mb-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">
+              Executive Directors
             </h3>
 
             <DirectorTable
@@ -305,8 +305,8 @@ export default function LookupTab() {
           </div>
         </div>
       ) : (
-        <div className="mb-6">
-          <label className="mb-3 block text-xl font-bold text-gray-950">Select Company</label>
+        <div className="mb-8 pb-4 border-b border-gray-200">
+          <label className="mb-2 block text-sm font-semibold text-gray-700 uppercase tracking-wider">Select Company</label>
           <div className="max-w-md">
             <Dropdown
               options={companyOptions}
@@ -342,16 +342,16 @@ export default function LookupTab() {
 
       {/* Company Metrics/Visualizations Section */}
       {selectedCompanyCode && selectedCompanyData.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mt-12">
-          <h2 className="mb-6 text-2xl font-bold text-gray-950">Company Metrics</h2>
+        <div className="mt-12 pt-8 border-t-2 border-gray-800">
+          <h2 className="mb-6 text-xl font-bold text-gray-900 border-b border-gray-200 pb-2">Company Metrics</h2>
           <VisualizationsSection
-              toFY={toFY}
-              companyDirectorRecords={selectedCompanyData}
-              companyMarketCap={dashboardData?.companyInfo?.marketCap}
-              numberOfEmployees={dashboardData?.companyInfo?.numberOfEmployees}
-              peerBars={dashboardData?.peerBars}
-              peerFinancialYear={dashboardData?.peerFinancialYear}
-            />
+            toFY={toFY}
+            companyDirectorRecords={selectedCompanyData}
+            companyMarketCap={dashboardData?.companyInfo?.marketCap}
+            numberOfEmployees={dashboardData?.companyInfo?.numberOfEmployees}
+            peerBars={dashboardData?.peerBars}
+            peerFinancialYear={dashboardData?.peerFinancialYear}
+          />
         </div>
       )}
     </div>

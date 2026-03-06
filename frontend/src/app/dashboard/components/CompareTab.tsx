@@ -217,7 +217,7 @@ export default function CompareTab({ onLayoutModeChange }: CompareTabProps = {})
       if (typeof selected === "string" || typeof selected === "number") {
         const identity = directorRegistry.get(String(selected)) ?? null;
         next[slot] = identity ? { id: identity.id, name: identity.name, din: identity.din, directorCode: identity.directorCode } : null;
-        
+
         // Track director selection
         if (identity) {
           apiClient.logSelectionActivity('directors', [identity.name]);
@@ -359,8 +359,8 @@ function ComparisonModeView({ profiles, hasData }: ComparisonModeViewProps) {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-4 lg:grid lg:grid-cols-4 lg:gap-12 lg:space-y-0">
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm lg:col-span-1">
+      <div className="space-y-4 lg:grid lg:grid-cols-4 lg:gap-8 lg:space-y-0 pb-8 border-b border-gray-200">
+        <div className="border border-gray-200 bg-gray-50 p-4 lg:col-span-1">
           {primaryProfile ? (
             <ProfileSummary profile={primaryProfile} />
           ) : (
@@ -374,7 +374,7 @@ function ComparisonModeView({ profiles, hasData }: ComparisonModeViewProps) {
           {secondaryProfiles.map((profile, index) => (
             <div
               key={`comparison-card-${index + 1}`}
-              className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm"
+              className="border border-gray-200 bg-gray-50 p-4"
             >
               {profile ? (
                 <ProfileSummary profile={profile} />
@@ -393,7 +393,7 @@ function ComparisonModeView({ profiles, hasData }: ComparisonModeViewProps) {
       {directors.length > 1 && <ComparisonMetricsTable directors={directors} />}
 
       {!hasData && (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+        <div className="border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
           Add executive directors to view comparative insights.
         </div>
       )}
@@ -414,7 +414,7 @@ function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
 
   if (!profile) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+      <div className="border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
         Select an executive director to view their snapshot.
       </div>
     );
@@ -432,7 +432,7 @@ function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+      <div className="border border-gray-200 bg-white p-5">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{profile.identity.name}</h3>
@@ -440,7 +440,7 @@ function SingleDirectorView({ profile, onClear }: SingleDirectorViewProps) {
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="text-xs text-gray-500 font-mono">DIN: {profile.identity.din ?? 'N/A'}</span>
               {sector && <span className="text-xs text-gray-400">· {sector}</span>}
-              {latestFY && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Latest: {latestFY}</span>}
+              {latestFY && <span className="text-xs text-gray-900 border border-gray-200 px-2 py-0.5 font-medium ml-2">Latest: {latestFY}</span>}
             </div>
           </div>
           <button
@@ -475,7 +475,7 @@ interface StatCardProps {
 
 function StatCard({ label, value, subtitle }: StatCardProps) {
   return (
-    <div className="rounded-lg border border-blue-100 bg-white p-4 text-sm shadow-sm">
+    <div className="border border-gray-200 bg-white p-3 text-sm">
       <div className="text-xs font-medium text-gray-600">{label}</div>
       <div className="mt-1 text-lg font-bold text-gray-900">{value}</div>
       <div className="text-xs text-gray-500">{subtitle}</div>
@@ -490,7 +490,7 @@ interface CompensationTrajectoryProps {
 function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
   if (directors.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="border border-gray-200 bg-white p-5">
         <h3 className="text-lg font-semibold text-gray-900">Compensation Trajectory Over Time</h3>
         <p className="mt-2 text-sm text-gray-500">Add executive directors to view compensation trends.</p>
       </div>
@@ -532,7 +532,7 @@ function CompensationTrajectory({ directors }: CompensationTrajectoryProps) {
 
   if (sortedYears.length === 0 || maxComp <= 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="border border-gray-200 bg-white p-5">
         <h3 className="text-lg font-semibold text-gray-900">Compensation Trajectory Over Time</h3>
         <p className="mt-2 text-sm text-gray-500">Compensation trend data is unavailable for the selected directors.</p>
       </div>
@@ -806,10 +806,14 @@ function ComparisonMetricsTable({ directors }: { directors: DirectorProfile[] })
       getValue: p => {
         const records = flattenHistory(p.history);
         const avgComp = records.map(r => parseCurrency(r.compensation));
-        const avgBonus = records.map(r => parseCurrency(r.bonus ?? "₹0"));
+        const avgVariables = records.map(r =>
+          parseCurrency(r.bonus ?? "₹0") +
+          parseCurrency(r.perquisites ?? "₹0") +
+          parseCurrency(r.esopMarketValue ?? "₹0")
+        );
         const totalComp = avgComp.reduce((s, v) => s + v, 0);
-        const totalBonus = avgBonus.reduce((s, v) => s + v, 0);
-        return totalComp > 0 ? `${((totalBonus / totalComp) * 100).toFixed(1)}%` : "N/A";
+        const totalVariables = avgVariables.reduce((s, v) => s + v, 0);
+        return totalComp > 0 ? `${((totalVariables / totalComp) * 100).toFixed(1)}%` : "N/A";
       },
     },
     {
@@ -839,6 +843,16 @@ function ComparisonMetricsTable({ directors }: { directors: DirectorProfile[] })
       },
     },
     {
+      label: "Avg Value per Option",
+      getValue: p => {
+        const records = flattenHistory(p.history);
+        const totalGranted = records.reduce((s, r) => s + (r.optionsGranted ?? 0), 0);
+        const totalIncome = records.reduce((s, r) => s + parseCurrency(r.esopMarketValue ?? "₹0"), 0);
+        const valPerOption = totalGranted > 0 ? (totalIncome / totalGranted) : 0;
+        return valPerOption > 0 ? `₹${valPerOption.toFixed(0)}` : "\u2014";
+      },
+    },
+    {
       label: "Gender",
       getValue: p => flattenHistory(p.history).sort((a, b) => b.year - a.year)[0]?.gender ?? "N/A",
     },
@@ -854,8 +868,8 @@ function ComparisonMetricsTable({ directors }: { directors: DirectorProfile[] })
   ];
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100">
+    <div className="border border-gray-200 bg-white overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Side-by-Side Comparison</h3>
       </div>
       <div className="overflow-x-auto">
@@ -999,7 +1013,7 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
           {latestBreakdownLabel && <span className="text-[10px] uppercase text-gray-500">{latestBreakdownLabel}</span>}
         </div>
         {latestBreakdown ? (
-          <div className="mt-2 rounded-md bg-white/60 p-3 flex flex-col gap-3">
+          <div className="mt-2 border border-gray-200 p-3 flex flex-col gap-3">
             <PieChart
               data={latestBreakdown.data}
               totalAmount={latestBreakdown.totalAmount}
@@ -1131,7 +1145,7 @@ function ProfileSummary({ profile }: { profile: DirectorProfile }) {
 function CompanyHistory({ history }: { history: DirectorHistory }) {
   if (history.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+      <div className="border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
         Select an executive director to see their company history.
       </div>
     );
@@ -1163,8 +1177,8 @@ function CompanyHistory({ history }: { history: DirectorHistory }) {
               : "text-red-600";
 
           return (
-            <div key={entry.company} className="bg-white border-l-4 border-indigo-500 rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-50 to-white px-6 py-4 border-b border-gray-200">
+            <div key={entry.company} className="bg-white border-t-2 border-indigo-500 border-x border-b border-gray-200 overflow-hidden mb-6">
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <h5 className="text-lg font-bold text-gray-900">{entry.company}</h5>
